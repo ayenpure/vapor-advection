@@ -12,8 +12,10 @@ project(advection CXX)
 
 list(APPEND CMAKE_MODULE_PATH "~/repositories/CMakeFindModules")
 
-# Find the VTK-m package
+# Find VAPOR packages
+# https://github.com/ayenpure/CMakeFindModules/blob/master/FindVAPOR.cmake
 find_package(VAPOR REQUIRED QUIET)
+# https://github.com/ayenpure/CMakeFindModules/blob/master/FindVAPORDEPS.cmake
 find_package(VAPORDEPS REQUIRED QUIET)
 
 add_executable(advection advection.cxx)
