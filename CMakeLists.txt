@@ -14,9 +14,9 @@ list(APPEND CMAKE_MODULE_PATH "~/repositories/CMakeFindModules")
 
 # Find the VTK-m package
 find_package(VAPOR REQUIRED QUIET)
-find_package(OpenGL REQUIRED)
-INCLUDE_DIRECTORIES(${VAPOR_INCLUDE_DIRS} ${OpenGL_INCLUDE_DIRS})
+find_package(VAPORDEPS REQUIRED QUIET)
 
 add_executable(advection advection.cxx)
-target_link_libraries(advection PRIVATE ${VAPOR_LIBRARIES} ${OpenGL_LIBRARIES})
-
+target_include_directories(advection PRIVATE ${VAPORDEPS_INCLUDE_DIRS})
+target_include_directories(advection PRIVATE ${VAPOR_INCLUDE_DIRS})
+target_link_libraries(advection PRIVATE ${VAPOR_LIBRARIES})
