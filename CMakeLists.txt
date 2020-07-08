@@ -18,9 +18,13 @@ list(APPEND CMAKE_MODULE_PATH "~/repositories/CMakeFindModules")
 find_package(VAPOR REQUIRED QUIET)
 # https://github.com/ayenpure/CMakeFindModules/blob/master/FindVAPORDEPS.cmake
 find_package(VAPORDEPS REQUIRED QUIET)
+# Find Boost
+find_package(Boost COMPONENTS program_options REQUIRED)
 
 add_executable(advection advection.cxx)
 set_target_properties(advection PROPERTIES CXX_STANDARD 11)
 target_include_directories(advection PRIVATE ${VAPORDEPS_INCLUDE_DIRS})
 target_include_directories(advection PRIVATE ${VAPOR_INCLUDE_DIRS})
+target_include_directories(advection PRIVATE ${Boost_INCLUDE_DIR})
 target_link_libraries(advection PRIVATE ${VAPOR_LIBRARIES})
+target_link_libraries(advection PRIVATE ${Boost_LIBRARIES})
