@@ -1,4 +1,6 @@
 #include <chrono>
+#include <filesystem>
+#include <iostream>
 #include <vector>
 #include <random>
 
@@ -62,14 +64,15 @@ int main (int argc, char** argv)
     std::cout << "Advection Benchmark" << std::endl << desc << std::endl;
   }
 
-  std::string datafile = vm["data"].as<std::string>();
+  std::string datapath = vm["data"].as<std::string>();
+  // Field is not really used
   std::string field = vm["field"].as<std::string>();
   long numSeeds = vm["seeds"].as<long>();
   long steps = vm["steps"].as<long>();
   float length = vm["length"].as<float>();
 
   std::cout << "Advection w/ : "
-            << "\nData : " << datafile
+            << "\nData : " << datapath
             << "\nField : " << field
             << "\nSteps : " << steps
             << "\nLength : " << length  << std::endl;
@@ -80,8 +83,16 @@ int main (int argc, char** argv)
   const std::string filetype = "cf";
   const size_t cache = 2000;
   const size_t threads = 0;
+
   std::vector<std::string> files;
-  files.push_back(datafile);
+  {
+    namespace fs = std::__fs::filesystem;
+    for (const auto & entry : fs::directory_iterator(datapath))
+    {
+        files.push_back(entry.path());
+        std::cout << entry.path() << std::endl;
+    }
+  }
   printf("file = %s\n", files[0].c_str());
   // no options to set that I know
   std::vector<std::string> fileopts;
