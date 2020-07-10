@@ -1,6 +1,7 @@
 # vapor-advection
 
-Benchmarking for particle advevtion in vapor
+Benchmarking for particle advection in VAPOR
+
 Example usage:
 
 `./advection --data ~/datasets/24Maycontrol.04000.000000.nc --field nnnnn --steps 10000 --length 0.0001 --seeds 10000`
