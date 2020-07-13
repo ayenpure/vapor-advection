@@ -21,7 +21,7 @@ find_package(VAPORDEPS REQUIRED QUIET)
 # Find Boost
 find_package(Boost COMPONENTS program_options REQUIRED)
 
-add_executable(advection advection.cxx)
+add_executable(advection advection.cxx Advection.h Advection.cpp)
 set_target_properties(advection PROPERTIES CXX_STANDARD 11)
 target_include_directories(advection PRIVATE ${VAPORDEPS_INCLUDE_DIRS})
 target_include_directories(advection PRIVATE ${VAPOR_INCLUDE_DIRS})
