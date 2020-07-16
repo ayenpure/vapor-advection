@@ -6,7 +6,8 @@
 #include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
 
-#include <vapor/Advection.h>
+#include "Advection.h"
+
 #include <vapor/DataMgr.h>
 #include <vapor/FileUtils.h>
 #include <vapor/VaporField.h>
@@ -159,7 +160,7 @@ int main (int argc, char** argv)
   // We're building this barebone so no need for field to color with
 
   // Advect particles in the field
-  flow::Advection advection;
+  external::Advection advection;
   advection.UseSeedParticles(seeds);
 
   auto start = chrono::steady_clock::now();
@@ -168,7 +169,7 @@ int main (int argc, char** argv)
   for(size_t step =  advection.GetMaxNumOfPart() - 1;
       step < steps && advect == flow::ADVECT_HAPPENED; steps++)
   {
-    advect = advection.AdvectOneStep(&velocityField, length, flow::Advection::ADVECTION_METHOD::RK4);
+    advect = advection.AdvectOneStep(&velocityField, length, external::Advection::ADVECTION_METHOD::RK4);
     //std::cout << "Advection happened? " << ((advect != 0) ? "yes" : "no") << std::endl;
   }
 
