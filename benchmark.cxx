@@ -23,7 +23,7 @@ int GetFilesFromDirectory(const std::string& datapath,
         itr != end_itr;
         ++itr )
   {
-    std::cout << itr->path() << std::endl;
+    datafiles.push_back(itr->path().c_str());
   }
   return 0;
 }

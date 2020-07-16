@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.8...3.15 FATAL_ERROR)
 project(advection CXX)
 
 
-list(APPEND CMAKE_MODULE_PATH "/glade/u/home/abhisheky/repositories/CMakeFindModules")
+list(APPEND CMAKE_MODULE_PATH "~/repositories/CMakeFindModules")
 
 # Find VAPOR packages
 # https://github.com/ayenpure/CMakeFindModules/blob/master/FindVAPOR.cmake
