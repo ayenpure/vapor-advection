@@ -1,9 +1,9 @@
 #include <chrono>
-#include <filesystem>
 #include <iostream>
 #include <vector>
 #include <random>
 
+#include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
 
 #include <vapor/Advection.h>
@@ -12,6 +12,20 @@
 #include <vapor/VaporField.h>
 
 using namespace VAPoR;
+
+int GetFilesFromDirectory(const std::string& datapath,
+                           std::vector<std::string>& datafiles)
+{
+  if ( !boost::filesystem::exists( datapath ) ) return -1;
+  boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
+  for ( boost::filesystem::directory_iterator itr( datapath );
+        itr != end_itr;
+        ++itr )
+  {
+    std::cout << itr->path() << std::endl;
+  }
+  return 0;
+}
 
 void GenerateSeeds(std::vector<flow::Particle>& seeds,
                    const std::vector<double>& rake,
@@ -85,14 +99,7 @@ int main (int argc, char** argv)
   const size_t threads = 0;
 
   std::vector<std::string> files;
-  {
-    namespace fs = std::__fs::filesystem;
-    for (const auto & entry : fs::directory_iterator(datapath))
-    {
-        files.push_back(entry.path());
-        std::cout << entry.path() << std::endl;
-    }
-  }
+  GetFilesFromDirectory(datapath, files);
   printf("file = %s\n", files[0].c_str());
   // no options to set that I know
   std::vector<std::string> fileopts;

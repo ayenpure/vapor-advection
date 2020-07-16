@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.8...3.15 FATAL_ERROR)
 project(advection CXX)
 
 
-list(APPEND CMAKE_MODULE_PATH "~/repositories/CMakeFindModules")
+list(APPEND CMAKE_MODULE_PATH "/glade/u/home/abhisheky/repositories/CMakeFindModules")
 
 # Find VAPOR packages
 # https://github.com/ayenpure/CMakeFindModules/blob/master/FindVAPOR.cmake
@@ -19,7 +19,7 @@ find_package(VAPOR REQUIRED QUIET)
 # https://github.com/ayenpure/CMakeFindModules/blob/master/FindVAPORDEPS.cmake
 find_package(VAPORDEPS REQUIRED QUIET)
 # Find Boost
-find_package(Boost COMPONENTS program_options REQUIRED)
+find_package(Boost COMPONENTS program_options filesystem REQUIRED)
 
 add_executable(advection advection.cxx)
 set_target_properties(advection PROPERTIES CXX_STANDARD 11)
