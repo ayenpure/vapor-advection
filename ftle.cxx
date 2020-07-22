@@ -6,11 +6,12 @@
 
 #include "boost/program_options.hpp"
 
-#include "Advection.h"
-
 #include <vapor/DataMgr.h>
 #include <vapor/FileUtils.h>
 #include <vapor/VaporField.h>
+
+#include "Advection.h"
+#include "FTLEHelper.h"
 
 using namespace VAPoR;
 
@@ -161,15 +162,7 @@ int main (int argc, char** argv)
   auto start = chrono::steady_clock::now();
 
   int advect = flow::ADVECT_HAPPENED;
-  res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);
-  /*We'll get streams as an output over here*/
-  /*Future optimization : if only FTLE is required, do not calculate the streams*/
-  /*FTLE steps*/
-  // 1. Calculate Gradiant
-  // 2. Calculate Caunchy Green Tensor
-  // 3. Calculate exponents
-  // 4. Allow rich set of exponents calculation
-
+  res = advection.AdvectTillTime(&velocityField, 0, length, 10, external::Advection::ADVECTION_METHOD::RK4);
   // Extract streams from the advection class
   std::vector<flow::Particle> endLocations;
   size_t streams = advection.GetNumberOfStreams();
@@ -177,8 +170,15 @@ int main (int argc, char** argv)
   {
     endLocations.push_back(advection.GetStreamAt(index).back());
   }
-
-  //Calculate gradiant 
+  /*We'll get streams as an output over here*/
+  /*Future optimization : if only FTLE is required, do not calculate the streams*/
+  /*FTLE steps*/
+  // 1. Calculate Gradiant
+  // 2. Calculate Caunchy Green Tensor
+  // 3. Calculate exponents
+  // 4. Allow rich set of exponents calculation
+  std::vector<double> FTLEfield;
+  CalculateFTLE(seeds, endLocations, 10, FTLEfield);
 
   auto end = chrono::steady_clock::now();
   const double nanotosec = 1e-9;

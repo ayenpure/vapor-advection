@@ -21,10 +21,13 @@ find_package(VAPORDEPS REQUIRED QUIET)
 # Find Boost
 find_package(Boost COMPONENTS program_options filesystem REQUIRED)
 
-add_executable(advection benchmark.cxx Advection.h Advection.cpp)
-set_target_properties(advection PROPERTIES CXX_STANDARD 11)
-target_include_directories(advection PRIVATE ${VAPORDEPS_INCLUDE_DIRS})
-target_include_directories(advection PRIVATE ${VAPOR_INCLUDE_DIRS})
-target_include_directories(advection PRIVATE ${Boost_INCLUDE_DIR})
-target_link_libraries(advection PRIVATE ${VAPOR_LIBRARIES})
-target_link_libraries(advection PRIVATE ${Boost_LIBRARIES})
+add_executable(benchmark benchmark.cxx Advection.h Advection.cpp)
+set_target_properties(benchmark PROPERTIES CXX_STANDARD 11)
+target_include_directories(benchmark PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
+target_link_libraries(benchmark PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})
+
+
+add_executable(ftle ftle.cxx FTLEHelper.h Advection.h Advection.cpp)
+set_target_properties(ftle PROPERTIES CXX_STANDARD 11)
+target_include_directories(ftle PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
+target_link_libraries(ftle PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})

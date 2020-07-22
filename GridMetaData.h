@@ -12,6 +12,10 @@ public:
     this->dims[0] = _dims[0];
     this->dims[1] = _dims[1];
     this->dims[2] = _dims[2];
+
+    this->PlaneSize = _dims[0]*_dims[1];
+    this->RowSize = _dims[0];
+
     // Populate x, y, z coords
     double xSpace = (bounds.at(1) - bounds.at(0)) / (dims[0] - 1);
     double ySpace = (bounds.at(3) - bounds.at(2)) / (dims[1] - 1);
@@ -34,7 +38,7 @@ public:
     // Cartesian product of x, y, z coords
     size_t xind, yind, zind, index;
     const double timeVal = 0.;
-    seeds.resize(dims[0]*dims[1]*dims[2]);
+    seeds.resize(this->GetNumberOfPoints());
     // Z grows slowest
     for(zind = 0; zind < dims[2]; zind++)
     {
@@ -76,10 +80,15 @@ public:
     neighbors[5] = (logical[2] == dims[2] - 1) ? index : index + PlaneSize;
   }
 
+  void GetNumberOfPoints() const
+  {
+    return _dims[0] * _dims[1] * _dims[2];
+  }
+
 private:
   long dims[3];
   long long int PlaneSize;
-  long long int vtkm::Id RowSize;
+  long long int RowSize;
   std::vector<double> bounds;
   std::vector<double> xCoords;
   std::vector<double> yCoords;
