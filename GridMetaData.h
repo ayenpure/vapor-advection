@@ -6,12 +6,13 @@ namespace detail
 class GridMetaData
 {
 public:
-  GridMetaData(long* _dims, std::vector<double>& _bounds)
-  , bounds(_bounds)
+  GridMetaData(const std::vector<size_t>& _dims,
+               const std::vector<double>& _bounds)
+  : bounds(_bounds)
   {
-    this->dims[0] = _dims[0];
-    this->dims[1] = _dims[1];
-    this->dims[2] = _dims[2];
+    this->dims[0] = _dims.at(0);
+    this->dims[1] = _dims.at(1);
+    this->dims[2] = _dims.at(2);
 
     this->PlaneSize = _dims[0]*_dims[1];
     this->RowSize = _dims[0];
@@ -47,11 +48,11 @@ public:
         // X grows fastest
         for(xind = 0; xind < dims[0]; xind++)
         {
-          seeds[ind].location.x = xCoords.at(xind);
-          seeds[ind].location.y = yCoords.at(yind);
-          seeds[ind].location.z = zCoords.at(zind);
-          seeds[ind].time       = timeVal;
-          ++ind;
+          seeds[index].location.x = xCoords.at(xind);
+          seeds[index].location.y = yCoords.at(yind);
+          seeds[index].location.z = zCoords.at(zind);
+          seeds[index].time       = timeVal;
+          ++index;
         }
       }
     }
@@ -80,9 +81,9 @@ public:
     neighbors[5] = (logical[2] == dims[2] - 1) ? index : index + PlaneSize;
   }
 
-  void GetNumberOfPoints() const
+  long long int GetNumberOfPoints() const
   {
-    return _dims[0] * _dims[1] * _dims[2];
+    return dims[0] * dims[1] * dims[2];
   }
 
 private:

@@ -16,7 +16,7 @@
 using namespace VAPoR;
 
 
-void GenerateSeeds(std::vector<flow::Particle>& seeds,
+/*void GenerateSeeds(std::vector<flow::Particle>& seeds,
                    const std::vector<double>& rake,
                    const long numOfSeeds)
 {
@@ -39,7 +39,7 @@ void GenerateSeeds(std::vector<flow::Particle>& seeds,
     seeds[i].time       = timeVal;
   }
   std::cout << "[end] generate seeds" << std::endl;
-}
+}*/
 
 int main (int argc, char** argv)
 {
@@ -130,9 +130,13 @@ int main (int argc, char** argv)
   rake.push_back(maxd.at(1));
   rake.push_back(mind.at(2));
   rake.push_back(maxd.at(2));
+
+  std::vector<size_t> dims;
+  datamgr.GetDimLens("uinterp", dims);
+
+  detail::GridMetaData metaData(dims, rake);
   // Populate seeds array
-  // Random for now, let users configure later
-  GenerateSeeds(seeds, rake, numSeeds);
+  metaData.GetSeeds(seeds);
   std::cout << "Will use " << seeds.size() << " seeds." << std::endl;
 
   flow::VaporField velocityField(8);
@@ -178,7 +182,7 @@ int main (int argc, char** argv)
   // 3. Calculate exponents
   // 4. Allow rich set of exponents calculation
   std::vector<double> FTLEfield;
-  CalculateFTLE(seeds, endLocations, 10, FTLEfield);
+  CalculateFTLE(seeds, endLocations, metaData, 10, FTLEfield);
 
   auto end = chrono::steady_clock::now();
   const double nanotosec = 1e-9;

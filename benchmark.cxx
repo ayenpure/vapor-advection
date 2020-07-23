@@ -121,6 +121,12 @@ int main (int argc, char** argv)
   // Get the extents of the dataset
   // I don't know why this requires a variable name!
   res = datamgr.GetVariableExtents(0, "uinterp", -1, -1, mind, maxd);
+  std::cout << "****************" << datamgr.GetNumDimensions("uinterp") << std::endl;
+  std::vector<size_t> dims;
+  datamgr.GetDimLens("uinterp", dims);
+  for(auto& dim : dims)
+    std::cout << "**" << dim << std::endl;
+
   if(res < 0)
   {
     std::cerr << "Failed to retrieve the extents of data" << std::endl;

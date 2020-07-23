@@ -1,16 +1,20 @@
 #include <vector>
 
+#include "GridMetaData.h"
+
 class Vec3
 {
 public:
+  Vec3() = default;
+
   Vec3(double x, double y, double z)
   {
-    vector[0] = x;
-    vector[1] = y;
-    vector[2] = z;
+    this->vector[0] = x;
+    this->vector[1] = y;
+    this->vector[2] = z;
   }
 
-  Vec3(Vec3& vec)
+  Vec3(const Vec3& vec)
   {
     this->vector[0] = vec[0];
     this->vector[1] = vec[1];
@@ -74,7 +78,7 @@ void CalculateCauchyGreenTensor(Vec3* jacobian)
   jacobian[2] =  Vec3{d, e, f};
 }
 
-Vec3 CalculateJacobi(Vec3* tensor)
+Vec3 CalculateJacobi(Vec3* jacobian)
 {
   Vec3 j1 = jacobian[0];
   Vec3 j2 = jacobian[1];
@@ -137,20 +141,20 @@ Vec3 CalculateJacobi(Vec3* tensor)
 
 void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
                    const std::vector<flow::Particle>& endPositions,
-                   const GridMetaData& metaData,
+                   const detail::GridMetaData& metaData,
                    const double duration,
-                   const std::vector<double> output)
+                   std::vector<double>& output)
 {
   /*FTLE steps*/
   // 1. Calculate Gradiant
-  const long long int numPoints = metaData->GetNumberOfPoints();
+  const long long int numPoints = metaData.GetNumberOfPoints();
   long long int index;
   const double dur_by2_reci = 1.0f / (2.0*duration);
 
   for(index =0; index < numPoints; index++)
   {
     long long int neighbors[6];
-    metaData->GetNeighbors(index, neighbors);
+    metaData.GetNeighborIndices(index, neighbors);
     // Gradient w.r.t X, Y, and Z.
     Vec3 xin1, xin2;
     xin1 = GetVec3(startPositions, neighbors[0]);
@@ -201,13 +205,13 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     // Make sure jacobian has changed indeed
 
     // 3. Calculate eigenvalues for the Cauchy Green Tensor
-    Vec3 eigenValues = CalculateEigen(jacobian);
+    Vec3 eigenValues = CalculateJacobi(jacobian);
 
     // 4. Allow rich set of exponents calculation
     double delta = eigenValues[0];
     // Given endTime is in units where start time is 0. else do endTime-startTime
     // return value for ftle computation
-    outputField = std::log(delta) / dur_by2_reci;
+    double outputField = std::log(delta) / dur_by2_reci;
 
     output.push_back(outputField);
   }
