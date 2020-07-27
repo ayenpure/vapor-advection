@@ -1,9 +1,9 @@
 #include <chrono>
-#include <filesystem>
 #include <iostream>
 #include <vector>
 #include <random>
 
+#include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
 
 #include <vapor/DataMgr.h>
@@ -15,6 +15,19 @@
 
 using namespace VAPoR;
 
+int GetFilesFromDirectory(const std::string& datapath,
+                           std::vector<std::string>& datafiles)
+{
+  if ( !boost::filesystem::exists( datapath ) ) return -1;
+  boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
+  for ( boost::filesystem::directory_iterator itr( datapath );
+        itr != end_itr;
+        ++itr )
+  {
+    datafiles.push_back(itr->path().c_str());
+  }
+  return 0;
+}
 
 /*void GenerateSeeds(std::vector<flow::Particle>& seeds,
                    const std::vector<double>& rake,
@@ -86,19 +99,11 @@ int main (int argc, char** argv)
   // TODO : read field and variable information
   // Let's assume we have read the data and field
   const std::string filetype = "cf";
-  const size_t cache = 2000;
+  const size_t cache = 10000;
   const size_t threads = 0;
 
   std::vector<std::string> files;
-  {
-    namespace fs = std::__fs::filesystem;
-    for (const auto & entry : fs::directory_iterator(datapath))
-    {
-        files.push_back(entry.path());
-        std::cout << entry.path() << std::endl;
-    }
-  }
-  printf("file = %s\n", files[0].c_str());
+  GetFilesFromDirectory(datapath, files);
   // no options to set that I know
   std::vector<std::string> fileopts;
   //fileopts.push_back("-project_to_pcs");
@@ -111,13 +116,19 @@ int main (int argc, char** argv)
     exit(EXIT_FAILURE);
   }
 
+  std::vector<double> timecoords;
+  datamgr.GetTimeCoordinates(timecoords);
+  for(auto& time : timecoords)
+    std::cout << time << ", ";
+  std::cout << std::endl;
+
   // Create particles
   std::vector<flow::Particle> seeds;
   std::vector<double> rake;
   vector<double> mind, maxd;
   // Get the extents of the dataset
   // I don't know why this requires a variable name!
-  res = datamgr.GetVariableExtents(0, "uinterp", -1, -1, mind, maxd);
+  res = datamgr.GetVariableExtents(0, "u", -1, -1, mind, maxd);
   if(res < 0)
   {
     std::cerr << "Failed to retrieve the extents of data" << std::endl;
@@ -132,9 +143,17 @@ int main (int argc, char** argv)
   rake.push_back(maxd.at(2));
 
   std::vector<size_t> dims;
-  datamgr.GetDimLens("uinterp", dims);
+  datamgr.GetDimLens("u", dims);
 
   detail::GridMetaData metaData(dims, rake);
+  std::cout << "dims" << std::endl;
+  for(auto& dim : dims)
+    std::cout << dim << ", ";
+  std::cout << std::endl;
+  std::cout << "rake" << std::endl;
+  for(auto& _rake : rake)
+    std::cout << _rake << ", ";
+  std::cout << std::endl;
   // Populate seeds array
   metaData.GetSeeds(seeds);
   std::cout << "Will use " << seeds.size() << " seeds." << std::endl;
@@ -142,9 +161,9 @@ int main (int argc, char** argv)
   flow::VaporField velocityField(8);
   velocityField.IsSteady = true;
   velocityField.AssignDataManager(&datamgr);
-  velocityField.VelocityNames[0] = "uinterp";
-  velocityField.VelocityNames[1] = "vinterp";
-  velocityField.VelocityNames[2] = "winterp";
+  velocityField.VelocityNames[0] = "u";
+  velocityField.VelocityNames[1] = "v";
+  velocityField.VelocityNames[2] = "w";
 
   ParamsBase::StateSave stateSave;// = nullptr;
   VAPoR::FlowParams params(&datamgr, &stateSave);
@@ -166,7 +185,7 @@ int main (int argc, char** argv)
   auto start = chrono::steady_clock::now();
 
   int advect = flow::ADVECT_HAPPENED;
-  res = advection.AdvectTillTime(&velocityField, 0, length, 10, external::Advection::ADVECTION_METHOD::RK4);
+  //res = advection.AdvectTillTime(&velocityField, 0, length, 10, external::Advection::ADVECTION_METHOD::RK4);
   // Extract streams from the advection class
   std::vector<flow::Particle> endLocations;
   size_t streams = advection.GetNumberOfStreams();

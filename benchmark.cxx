@@ -101,7 +101,6 @@ int main (int argc, char** argv)
 
   std::vector<std::string> files;
   GetFilesFromDirectory(datapath, files);
-  printf("file = %s\n", files[0].c_str());
   // no options to set that I know
   std::vector<std::string> fileopts;
   //fileopts.push_back("-project_to_pcs");

@@ -145,12 +145,14 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
                    const double duration,
                    std::vector<double>& output)
 {
+  std::cout << "Calculating FTLE" << std::endl;
   /*FTLE steps*/
   // 1. Calculate Gradiant
   const long long int numPoints = metaData.GetNumberOfPoints();
   long long int index;
   const double dur_by2_reci = 1.0f / (2.0*duration);
-
+  #pragma omp parallel
+  #pragma omp for
   for(index =0; index < numPoints; index++)
   {
     long long int neighbors[6];
@@ -215,4 +217,5 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
 
     output.push_back(outputField);
   }
+  std::cout << "Finished calculating FTLE" << std::endl;
 }

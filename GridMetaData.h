@@ -8,23 +8,20 @@ class GridMetaData
 public:
   GridMetaData(const std::vector<size_t>& _dims,
                const std::vector<double>& _bounds)
-  : bounds(_bounds)
+  : dims(_dims)
+  , bounds(_bounds)
   {
-    this->dims[0] = _dims.at(0);
-    this->dims[1] = _dims.at(1);
-    this->dims[2] = _dims.at(2);
-
-    this->PlaneSize = _dims[0]*_dims[1];
-    this->RowSize = _dims[0];
+    this->PlaneSize = dims.at(0)*dims.at(1);
+    this->RowSize = dims.at(0);
 
     // Populate x, y, z coords
     double xSpace = (bounds.at(1) - bounds.at(0)) / (dims[0] - 1);
     double ySpace = (bounds.at(3) - bounds.at(2)) / (dims[1] - 1);
     double zSpace = (bounds.at(5) - bounds.at(4)) / (dims[2] - 1);
     double init = bounds.at(0);
-    xCoords.resize(dims[0]);
-    yCoords.resize(dims[1]);
-    zCoords.resize(dims[2]);
+    xCoords.resize(dims.at(0));
+    yCoords.resize(dims.at(1));
+    zCoords.resize(dims.at(2));
     size_t index;
     for(index = 0; index < dims[0]; index++)
       xCoords[index] = bounds.at(0) + index * xSpace;
@@ -34,19 +31,26 @@ public:
       zCoords[index] = bounds.at(4) + index * zSpace;
   }
 
+  long long int GetNumberOfPoints() const
+  {
+    std::cout <<  dims[0] * dims[1] * dims[2] << std::endl;
+    return dims[0] * dims[1] * dims[2];
+  }
+
   void GetSeeds(std::vector<flow::Particle>& seeds) const
   {
     // Cartesian product of x, y, z coords
-    size_t xind, yind, zind, index;
+    size_t xind, yind, zind;
+    long long int index = 0;
     const double timeVal = 0.;
     seeds.resize(this->GetNumberOfPoints());
     // Z grows slowest
-    for(zind = 0; zind < dims[2]; zind++)
+    for(zind = 0; zind < dims.at(2); zind++)
     {
-      for(yind = 0; yind < dims[1]; yind++)
+      for(yind = 0; yind < dims.at(1); yind++)
       {
         // X grows fastest
-        for(xind = 0; xind < dims[0]; xind++)
+        for(xind = 0; xind < dims.at(0); xind++)
         {
           seeds[index].location.x = xCoords.at(xind);
           seeds[index].location.y = yCoords.at(yind);
@@ -81,13 +85,8 @@ public:
     neighbors[5] = (logical[2] == dims[2] - 1) ? index : index + PlaneSize;
   }
 
-  long long int GetNumberOfPoints() const
-  {
-    return dims[0] * dims[1] * dims[2];
-  }
-
 private:
-  long dims[3];
+  std::vector<size_t> dims;
   long long int PlaneSize;
   long long int RowSize;
   std::vector<double> bounds;
