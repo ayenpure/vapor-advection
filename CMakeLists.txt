@@ -20,6 +20,8 @@ find_package(VAPOR REQUIRED QUIET)
 find_package(VAPORDEPS REQUIRED QUIET)
 # Find Boost
 find_package(Boost COMPONENTS program_options filesystem REQUIRED)
+# Find VTK-m for comparison of output field
+find_package(VTKm REQUIRED QUIET)
 
 add_executable(benchmark benchmark.cxx Advection.h Advection.cpp)
 set_target_properties(benchmark PROPERTIES CXX_STANDARD 11)
@@ -31,3 +33,15 @@ add_executable(ftle ftle.cxx FTLEHelper.h Advection.h Advection.cpp)
 set_target_properties(ftle PROPERTIES CXX_STANDARD 11)
 target_include_directories(ftle PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
 target_link_libraries(ftle PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(compare CompareWithVTKm.cxx Advection.h Advection.cpp)
+set_target_properties(compare PROPERTIES CXX_STANDARD 11)
+target_include_directories(compare PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
+target_link_libraries(compare PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES} vtkm_cont vtkm_worklet)
+
+#add_executable(convert ConvertToVTK.cxx)
+#set_target_properties(convert PROPERTIES CXX_STANDARD 11)
+#target_include_directories(convert PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
+#target_link_libraries(convert PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})
+
+
