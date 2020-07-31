@@ -54,6 +54,20 @@ public:
   }
 };
 
+class CompareWorklet : public vtkm::worklet::WorkletMapField
+{
+public:
+  VTKM_EXEC_CONT CompareWorklet() = default;
+
+  using ControlSignature = void(FieldIn, FieldIn);
+
+  VTKM_EXEC void operator()(const double& vapor,
+                            const double& visit) const
+  {
+    std::cout << "Vapor : " << vapor << " | VisIt " << visit << std::endl;
+  }
+};
+
 } //namespace detail
 
 void CopyToVTKmArrays(std::vector<flow::Particle>& _vaporLocation,
@@ -230,8 +244,8 @@ int main (int argc, char** argv)
 
   // Compare Vapor o/p w/ VTK-m o/p
   vtkm::cont::ArrayHandle<double> vaporFTLE;
-  vaporFTLE = vtkm::cont::make_ArrayHandle(FTLEField);
-  invoker(CompareWorklet, vaporFTLE, vtkmFTLE);
+  vaporFTLE = vtkm::cont::make_ArrayHandle(FTLEfield);
+  invoker(detail::CompareWorklet{}, vaporFTLE, vtkmFTLE);
 
   auto end = chrono::steady_clock::now();
   const double nanotosec = 1e-9;
