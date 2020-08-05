@@ -10,11 +10,20 @@
 #include <vapor/FileUtils.h>
 #include <vapor/VaporField.h>
 
+#include <vtkCellArray.h>
+#include <vtkPoints.h>
+#include <vtkSmartPointer.h>
+#include <vtkPolyData.h>
+#include <vtkPolyDataReader.h>
+
 #include <vtkm/Types.h>
+#include <vtkm/cont/DataSet.h>
 #include <vtkm/cont/DataSetBuilderUniform.h>
 #include <vtkm/cont/Invoker.h>
+#include <vtkm/io/VTKDataSetReader.h>
 #include <vtkm/worklet/LagrangianStructures.h>
 #include <vtkm/worklet/lcs/GridMetaData.h>
+#include <vtkm/worklet/WorkletMapTopology.h>
 
 #include "Advection.h"
 #include "FTLEHelper.h"
@@ -37,6 +46,23 @@ int GetFilesFromDirectory(const std::string& datapath,
 
 namespace detail
 {
+
+void VTKmToVaporParticle(const std::vector<vtkm::Vec3f>& vtkm,
+                         std::vector<flow::Particle>& vapor)
+{
+  for(long i = 0; i < vtkm.size(); i++ )
+  {
+    flow::Particle particle;
+    vtkm::Vec3f vec = vtkm.at(i);
+    std::cout << "[Copying " << i << "]" << vec << std::endl;
+    particle.location.x = vec[0];
+    particle.location.y = vec[1];
+    particle.location.z = vec[2];
+    particle.time       = 0;
+    vapor.push_back(particle);
+  }
+}
+
 class VaporToVTKm : public vtkm::worklet::WorkletMapField
 {
 public:
@@ -60,13 +86,40 @@ public:
   VTKM_EXEC_CONT CompareWorklet() = default;
 
   using ControlSignature = void(FieldIn, FieldIn);
+  using ExecutionSignature = void(WorkIndex, _1, _2);
 
-  VTKM_EXEC void operator()(const double& vapor,
+  VTKM_EXEC void operator()(const vtkm::Id index,
+                            const double& vapor,
                             const double& visit) const
   {
-    std::cout << "Vapor : " << vapor << " | VisIt " << visit << std::endl;
+    std::cout << "[" << index << "] "<<" VaPOR : " << vapor << " | VTK-m : " << visit << std::endl;
   }
 };
+
+/*class GetFlowMap : public vtkm::worklet::WorkletVisitCellsWithPoints
+{
+public:
+  VTKM_EXEC_CONT GetFlowMap() = default;
+
+  using ControlSignature = void(CellSetIn, WholeArrayIn, FieldOut, FieldOut);
+  using ExecutionSignature = void(CellShape, PointCount, PointIndices, _2, _3, _4);
+
+  template <typename CellShapeTag,
+            typename PointCountType,
+            typename PointIndicesType,
+            typename CoordinatesPortalType,
+            typename PointType>
+  VTKM_EXEC void operator()(CellShapeTag shape,
+                            PointCountType pointCount,
+                            const PointIndicesType &pointIndices,
+                            const CoordinatesPortalType &coordsPortal,
+                            PointType& start,
+                            PointType& end) const
+  {
+    start = coordsPortal.Get(pointIndices[0]);
+    end   = coordsPortal.Get(pointIndices[pointCount - 1]);
+  }
+};*/
 
 } //namespace detail
 
@@ -90,167 +143,121 @@ int main (int argc, char** argv)
   // 5. Seeding parameters
   namespace options = boost::program_options;
   options::options_description desc("Options");
-  desc.add_options()("data", options::value<std::string>()->required(), "Path to dataset")
-                    ("field", options::value<std::string>()->required(), "Name of vector field")
-                    ("seeds", options::value<long>()->required(), "Number of seed particles")
-                    ("steps", options::value<long>()->required(), "Number of Steps")
-                    ("length", options::value<float>()->required(), "Length of a single step");
+  desc.add_options()("data", options::value<std::string>()->required(), "Mesh data")
+                    ("flow", options::value<std::string>()->required(), "Trajectory data");
   options::variables_map vm;
   options::store(options::parse_command_line(argc, argv, desc), vm); // can throw
   options::notify(vm);
   if (!(vm.count("data")
-      && vm.count("field")
-      && vm.count("seeds")
-      && vm.count("steps")
-      && vm.count("length")))
+      && vm.count("flow")))
   {
     std::cout << "Advection Benchmark" << std::endl << desc << std::endl;
   }
 
   std::string datapath = vm["data"].as<std::string>();
+  std::string flowpath = vm["flow"].as<std::string>();
   // Field is not really used
-  std::string field = vm["field"].as<std::string>();
-  long numSeeds = vm["seeds"].as<long>();
-  long steps = vm["steps"].as<long>();
-  float length = vm["length"].as<float>();
-
   std::cout << "Advection w/ : "
-            << "\nData : " << datapath
-            << "\nField : " << field
-            << "\nSteps : " << steps
-            << "\nLength : " << length  << std::endl;
+            << "\nData : " << datapath << std::endl;
 
-  int res;
-  // TODO : read field and variable information
-  // Let's assume we have read the data and field
-  const std::string filetype = "cf";
-  const size_t cache = 10000;
-  const size_t threads = 0;
+  std::vector<vtkm::Vec3f> startPoints, endPoints;
 
-  std::vector<std::string> files;
-  GetFilesFromDirectory(datapath, files);
-  // no options to set that I know
-  std::vector<std::string> fileopts;
-  //fileopts.push_back("-project_to_pcs");
-  //fileopts.push_back("-vertical_xform");
-  VAPoR::DataMgr datamgr(filetype, cache, threads);
-  res = datamgr.Initialize(files, fileopts);
-  if(res < 0)
+  vtkm::cont::DataSet data;
   {
-    std::cerr << "Failed to intialize CF DataMGR" << std::endl;
-    exit(EXIT_FAILURE);
+    vtkm::io::VTKDataSetReader reader(datapath);
+    data = reader.ReadDataSet();
+  }
+  {
+    vtkSmartPointer<vtkPolyDataReader> inputReader
+      = vtkSmartPointer<vtkPolyDataReader>::New();
+    inputReader->SetFileName(flowpath.c_str());
+    inputReader->Update();
+
+    vtkSmartPointer<vtkPolyData> flowDataset = inputReader->GetOutput();
+    vtkSmartPointer<vtkPoints> flowPoints = flowDataset->GetPoints();
+    vtkSmartPointer<vtkCellArray> flowCells = flowDataset->GetLines();
+
+    // Get basic data needed for performing the merge.
+    vtkIdType  numCells;
+    numCells = flowDataset->GetNumberOfCells();
+    if(numCells == 0)
+    {
+      std::cout << "Number of cells is 0, something went wrong" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    vtkIdType numPoints;
+    vtkIdType* points;
+    while(flowCells->GetNextCell(numPoints, points))
+    {
+      vtkIdType startIndex = points[0];
+      vtkIdType endIndex = points[numPoints - 1];
+      double* startPoint = flowPoints->GetPoint(startIndex);
+      vtkm::Vec3f _1 = vtkm::Vec3f{startPoint[0], startPoint[1], startPoint[2]};
+      double* endPoint = flowPoints->GetPoint(endIndex);
+      vtkm::Vec3f _2 = vtkm::Vec3f{endPoint[0], endPoint[1], endPoint[2]};
+      std::cout << "{" << _1 << " : " << _2 << "} : " << (_1 == _2) << std::endl;
+      startPoints.push_back(_1);
+      endPoints.push_back(_2);
+    }
   }
 
-  std::vector<double> timecoords;
-  datamgr.GetTimeCoordinates(timecoords);
-  for(auto& time : timecoords)
-    std::cout << time << ", ";
-  std::cout << std::endl;
+  std::cout << "Number of point : " << startPoints.size() << " : " << endPoints.size() << std::endl;
 
-  // Create particles
-  std::vector<flow::Particle> seeds;
-  std::vector<double> rake;
-  vector<double> mind, maxd;
-  // Get the extents of the dataset
-  // I don't know why this requires a variable name!
-  res = datamgr.GetVariableExtents(0, "u", -1, -1, mind, maxd);
-  if(res < 0)
-  {
-    std::cerr << "Failed to retrieve the extents of data" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  //Build a seeding rake 
-  rake.push_back(mind.at(0));
-  rake.push_back(maxd.at(0));
-  rake.push_back(mind.at(1));
-  rake.push_back(maxd.at(1));
-  rake.push_back(mind.at(2));
-  rake.push_back(maxd.at(2));
+  vtkm::cont::CoordinateSystem coords = data.GetCoordinateSystem();
+  vtkm::cont::DynamicCellSet cellset  = data.GetCellSet();
 
   std::vector<size_t> dims;
-  datamgr.GetDimLens("u", dims);
-
-  detail::GridMetaData metaData(dims, rake);
-  std::cout << "dims" << std::endl;
-  for(auto& dim : dims)
-    std::cout << dim << ", ";
-  std::cout << std::endl;
-  std::cout << "rake" << std::endl;
-  for(auto& _rake : rake)
-    std::cout << _rake << ", ";
-  std::cout << std::endl;
-  // Populate seeds array
-  metaData.GetSeeds(seeds);
-  std::cout << "Will use " << seeds.size() << " seeds." << std::endl;
-
-  flow::VaporField velocityField(8);
-  velocityField.IsSteady = true;
-  velocityField.AssignDataManager(&datamgr);
-  velocityField.VelocityNames[0] = "u";
-  velocityField.VelocityNames[1] = "v";
-  velocityField.VelocityNames[2] = "w";
-
-  ParamsBase::StateSave stateSave;// = nullptr;
-  VAPoR::FlowParams params(&datamgr, &stateSave);
-  params.SetIsSteady(true);
-  params.SetSteadyNumOfSteps(steps);
-  params.SetFlowDirection(static_cast<int>(VAPoR::FlowDir::FORWARD));
-  params.SetSeedGenMode(static_cast<int>(VAPoR::FlowSeedMode::RANDOM));
-  params.SetRandomNumOfSeeds(1000);
-  velocityField.UpdateParams(&params);
-
-  res = velocityField.CalcDeltaTFromCurrentTimeStep(length);
-
-  // We're building this barebone so no need for field to color with
-
-  // Advect particles in the field
-  external::Advection advection;
-  advection.UseSeedParticles(seeds);
-
-  auto start = chrono::steady_clock::now();
-
-  int advect = flow::ADVECT_HAPPENED;
-  //res = advection.AdvectTillTime(&velocityField, 0, length, 10, external::Advection::ADVECTION_METHOD::RK4);
-  // Extract streams from the advection class
-  std::vector<flow::Particle> endLocations;
-  size_t streams = advection.GetNumberOfStreams();
-  for(size_t index = 0; index < streams; index++)
+  using Structured2DType = vtkm::cont::CellSetStructured<2>;
+  using Structured3DType = vtkm::cont::CellSetStructured<3>;
+  if (cellset.IsType<Structured2DType>())
   {
-    endLocations.push_back(advection.GetStreamAt(index).back());
+    vtkm::Id2 _dims =
+        cellset.Cast<Structured2DType>().GetSchedulingRange(vtkm::TopologyElementTagPoint());
+    dims.push_back(_dims[0]);
+    dims.push_back(_dims[1]);
+    dims.push_back(size_t(1));
   }
-  /*We'll get streams as an output over here*/
-  /*Future optimization : if only FTLE is required, do not calculate the streams*/
-  /*FTLE steps*/
-  // 1. Calculate Gradiant
-  // 2. Calculate Caunchy Green Tensor
-  // 3. Calculate exponents
-  // 4. Allow rich set of exponents calculation
-  std::vector<double> FTLEfield;
-  CalculateFTLE(seeds, endLocations, metaData, 10, FTLEfield);
+  else
+  {
+    vtkm::Id3 _dims =
+        cellset.Cast<Structured3DType>().GetSchedulingRange(vtkm::TopologyElementTagPoint());
+    dims.push_back(_dims[0]);
+    dims.push_back(_dims[1]);
+    dims.push_back(_dims[2]);
+  }
+  std::vector<double> bounds;
+  vtkm::Bounds _bounds = coords.GetBounds();
+  bounds.push_back(_bounds.X.Min);
+  bounds.push_back(_bounds.X.Max);
+  bounds.push_back(_bounds.Y.Min);
+  bounds.push_back(_bounds.Y.Max);
+  bounds.push_back(_bounds.Z.Min);
+  bounds.push_back(_bounds.Z.Max);
 
-  /* Calculate result w/ VTK-m */
-  vtkm::cont::DataSetBuilderUniform datasetBuilder;
-  vtkm::Id3 _vtkmDims(dims.at(0), dims.at(1), dims.at(2));
-  vtkm::cont::DataSet dataset = datasetBuilder.Create(_vtkmDims);
-  std::vector<double> _vtkmFTLE;
+  std::cout << "Calculating FTLE using VAPoR" << std::endl;
+  std::cout << dims.size() << " | " << bounds.size() << std::endl;
+
+  detail::GridMetaData metaData(dims, bounds);
+  std::vector<double> _vaporFTLE;
+  std::vector<flow::Particle> vaporStart, vaporEnd;
+  detail::VTKmToVaporParticle(startPoints, vaporStart);
+  detail::VTKmToVaporParticle(endPoints, vaporEnd);
+  CalculateFTLE(vaporStart, vaporEnd, metaData, 10, _vaporFTLE);
+  vtkm::cont::ArrayHandle<double> vaporFTLE;
+  vaporFTLE = vtkm::cont::make_ArrayHandle(_vaporFTLE);
+
+  std::cout << "Calculating FTLE using VTK-m" << std::endl;
+
   vtkm::cont::ArrayHandle<double> vtkmFTLE;
-  vtkmFTLE = vtkm::cont::make_ArrayHandle(_vtkmFTLE);
   vtkm::cont::ArrayHandle<vtkm::Vec3f> vtkmStart, vtkmEnd;
-  CopyToVTKmArrays(seeds, vtkmStart);
-  CopyToVTKmArrays(endLocations, vtkmEnd);
+  vtkmStart = vtkm::cont::make_ArrayHandle(startPoints);
+  vtkmEnd = vtkm::cont::make_ArrayHandle(endPoints);
   vtkm::cont::Invoker invoker;
-  vtkm::worklet::LagrangianStructures<3> lcsWorklet(10, dataset.GetCellSet());
+  vtkm::worklet::LagrangianStructures<2> lcsWorklet(10, data.GetCellSet());
   invoker(lcsWorklet, vtkmStart, vtkmEnd, vtkmFTLE);
 
-  // Compare Vapor o/p w/ VTK-m o/p
-  vtkm::cont::ArrayHandle<double> vaporFTLE;
-  vaporFTLE = vtkm::cont::make_ArrayHandle(FTLEfield);
+  std::cout << "Comparing values" << std::endl;
   invoker(detail::CompareWorklet{}, vaporFTLE, vtkmFTLE);
-
-  auto end = chrono::steady_clock::now();
-  const double nanotosec = 1e-9;
-  auto elapsed = chrono::duration_cast<chrono::nanoseconds>(end - start).count() * nanotosec;
-  cout << "Elapsed time in nanoseconds : " << elapsed << " sec." << endl;
 
   return 0;
 }
