@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <random>
+#include <omp.h>
 
 #include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
@@ -51,6 +52,23 @@ void GenerateSeeds(std::vector<flow::Particle>& seeds,
   std::cout << "[end] generate seeds" << std::endl;
 }
 
+int PrintStreams(external::Advection& advector)
+{
+  size_t numStreams = advector.GetNumberOfStreams();
+  for(size_t index = 0; index < numStreams; index++)
+  {
+    auto& stream = advector.GetStreamAt(index);
+    {
+      auto& start = stream.front();
+      auto& end = stream.back();
+      std::cout << "[" << index << "] Size : " << stream.size() << " "
+                << "{(" << start.location.x << ", " << start.location.y << ", " << start.location.z << ") : "
+                << "(" << end.location.x << ", " << end.location.y << ", " << end.location.z << ")}" << std::endl;
+    }
+  }
+  return 0;
+}
+
 int main (int argc, char** argv)
 {
   // Input params
@@ -86,6 +104,7 @@ int main (int argc, char** argv)
   long steps = vm["steps"].as<long>();
   float length = vm["length"].as<float>();
 
+  std::cout << "Available # of threads : " << omp_get_max_threads() << std::endl;
   std::cout << "Advection w/ : "
             << "\nData : " << datapath
             << "\nField : " << field
@@ -171,18 +190,21 @@ int main (int argc, char** argv)
   auto start = chrono::steady_clock::now();
 
   int advect = flow::ADVECT_HAPPENED;
-  for(size_t step =  advection.GetMaxNumOfPart() - 1;
+  /*for(size_t step =  advection.GetMaxNumOfPart() - 1;
       step < steps && advect == flow::ADVECT_HAPPENED; steps++)
   {
     advect = advection.AdvectOneStep(&velocityField, length, external::Advection::ADVECTION_METHOD::RK4);
     //std::cout << "Advection happened? " << ((advect != 0) ? "yes" : "no") << std::endl;
-  }
+  }*/
+
+  advect = advection.AdvectSteps(&velocityField, length, steps, external::Advection::ADVECTION_METHOD::RK4);
 
   auto end = chrono::steady_clock::now();
   const double nanotosec = 1e-9;
   auto elapsed = chrono::duration_cast<chrono::nanoseconds>(end - start).count() * nanotosec;
   cout << "Elapsed time in nanoseconds : " << elapsed << " sec." << endl;
 
+  PrintStreams(advection);
   /*res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);*/
   //for(auto& seed : seeds)
   //  std::cout << seed.location.x << " : " << seed.time << std::endl;

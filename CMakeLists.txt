@@ -24,11 +24,13 @@ find_package(Boost COMPONENTS program_options filesystem REQUIRED)
 find_package(VTK REQUIRED)
 find_package(VTKm REQUIRED QUIET)
 
+# OMP optional on others, requred locally
+find_package(OMP REQUIRED QUIET)
+
 add_executable(benchmark benchmark.cxx Advection.h Advection.cpp)
 set_target_properties(benchmark PROPERTIES CXX_STANDARD 11)
-target_include_directories(benchmark PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
-target_link_libraries(benchmark PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})
-
+target_include_directories(benchmark PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${OMP_INCLUDE})
+target_link_libraries(benchmark PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES} ${OMP_LIBRARY})
 
 add_executable(ftle ftle.cxx FTLEHelper.h Advection.h Advection.cpp)
 set_target_properties(ftle PROPERTIES CXX_STANDARD 11)
