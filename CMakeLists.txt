@@ -24,7 +24,7 @@ find_package(Boost COMPONENTS program_options filesystem REQUIRED)
 find_package(VTK REQUIRED)
 find_package(VTKm REQUIRED QUIET)
 
-# OMP optional on others, requred locally
+# OMP optional on others, required locally
 find_package(OMP REQUIRED QUIET)
 
 add_executable(benchmark benchmark.cxx Advection.h Advection.cpp)

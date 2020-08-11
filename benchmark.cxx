@@ -202,7 +202,7 @@ int main (int argc, char** argv)
   auto end = chrono::steady_clock::now();
   const double nanotosec = 1e-9;
   auto elapsed = chrono::duration_cast<chrono::nanoseconds>(end - start).count() * nanotosec;
-  cout << "Elapsed time in nanoseconds : " << elapsed << " sec." << endl;
+  cout << "Elapsed time : " << elapsed << " sec." << endl;
 
   PrintStreams(advection);
   /*res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);*/
