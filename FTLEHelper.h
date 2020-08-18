@@ -47,6 +47,10 @@ private:
   double vector[3];
 };
 
+std::ostream& operator<<(std::ostream &strm, const Vec3& vec) {
+    return strm << "{" << vec[0] << "," << vec[1] << ", " << vec[2] << "}";
+}
+
 inline Vec3 GetVec3(const std::vector<flow::Particle>& data,
                               long long int index)
 {
@@ -54,6 +58,24 @@ inline Vec3 GetVec3(const std::vector<flow::Particle>& data,
 }
 
 void CalculateCauchyGreenTensor(Vec3* jacobian)
+{
+  Vec3 j1 = jacobian[0];
+  Vec3 j2 = jacobian[1];
+
+  // Left Cauchy Green Tensor is J*J^T
+  // j1[0] j1[1] | j1[0] j2[0]
+  // j2[0] j2[1] | j1[1] j2[1]
+
+  double a = j1[0] * j1[0] + j1[1] * j1[1];
+  double b = j1[0] * j2[0] + j1[1] * j2[1];
+
+  double d = j2[0] * j2[0] + j2[1] * j2[1];
+
+  jacobian[0] =  Vec3{a, b, 1};
+  jacobian[1] =  Vec3{b, d, 1};
+}
+
+/*void CalculateCauchyGreenTensor(Vec3* jacobian)
 {
   Vec3 j1 = jacobian[0];
   Vec3 j2 = jacobian[1];
@@ -76,9 +98,32 @@ void CalculateCauchyGreenTensor(Vec3* jacobian)
   jacobian[0] =  Vec3{a, b, c};
   jacobian[1] =  Vec3{b, d, e};
   jacobian[2] =  Vec3{d, e, f};
-}
+}*/
+
 
 Vec3 CalculateJacobi(Vec3* jacobian)
+{
+  Vec3 j1 = jacobian[0];
+  Vec3 j2 = jacobian[1];
+
+  // Assume a symetric matrix
+  // a b
+  // b c
+  double a = j1[0];
+  double b = j1[1];
+  double c = j2[1];
+
+  double trace = (a + c) / 2.0f;
+  double det = a * c - b * b;
+  double sqrtr = std::sqrt(trace * trace - det);
+
+  // Arrange eigen values from largest to smallest.
+  double w0 = trace + sqrtr;
+  double w1 = trace - sqrtr;
+  return Vec3{w0, w1, 0.};
+}
+
+/*Vec3 CalculateJacobi(Vec3* jacobian)
 {
   Vec3 j1 = jacobian[0];
   Vec3 j2 = jacobian[1];
@@ -137,7 +182,7 @@ Vec3 CalculateJacobi(Vec3* jacobian)
     std::swap(w1, w2);
 
   return Vec3{w0, w1, w2};
-}
+}*/
 
 void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
                    const std::vector<flow::Particle>& endPositions,
@@ -202,18 +247,34 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     jacobian[1] = Vec3{f2x, f2y, f2z};
     jacobian[2] = Vec3{f3x, f3y, f3z};
 
+    if(index < 10)
+    {
+      std::cout << "Jacobian" << std::endl;
+      std::cout << jacobian[0] << std::endl;
+      std::cout << jacobian[1] << std::endl;
+    }
+
     // 2. Calculate Caunchy Green Tensor
     CalculateCauchyGreenTensor(jacobian);
     // Make sure jacobian has changed indeed
+
+    if(index < 10)
+    {
+      std::cout << "Tensor" << std::endl;
+      std::cout << jacobian[0] << std::endl;
+      std::cout << jacobian[1] << std::endl;
+    }
 
     // 3. Calculate eigenvalues for the Cauchy Green Tensor
     Vec3 eigenValues = CalculateJacobi(jacobian);
 
     // 4. Allow rich set of exponents calculation
     double delta = eigenValues[0];
+    if(index < 10)
+      std::cout << "Eigen " << delta << std::endl;
     // Given endTime is in units where start time is 0. else do endTime-startTime
     // return value for ftle computation
-    double outputField = std::log(delta) / dur_by2_reci;
+    double outputField = std::log(delta) * dur_by2_reci;
 
     output.push_back(outputField);
   }
