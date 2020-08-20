@@ -42,17 +42,20 @@ void GenerateSeeds(std::vector<flow::Particle>& seeds,
   std::uniform_real_distribution<float> distX( xrake.at(0), xrake.at(1));
   std::uniform_real_distribution<float> distY( yrake.at(0), yrake.at(1));
   std::uniform_real_distribution<float> distZ( zrake.at(0), zrake.at(1));
-  seeds.resize(numOfSeeds);
-  for( long i = 0; i < numOfSeeds; i++ )
+  seeds.resize(1);
+  for( long i = 0; i < 1; i++ )
   {
-    seeds[i].location.x = distX(gen);
-    seeds[i].location.y = distY(gen);
-    seeds[i].location.z = distZ(gen);
+            seeds[i].location.x = 1.448671;
+            seeds[i].location.y = -8.197534;
+            seeds[i].location.z = 0.344849;
+    //seeds[i].location.x = distX(gen);
+    //seeds[i].location.y = distY(gen);
+    //seeds[i].location.z = distZ(gen);
     seeds[i].time       = initTime;
   }
   for(auto& seed : seeds)
   {
-    std::cout << "{" << seed.location.x << "," << seed.location.y << ", " << seed.location.y << "} : " << seed.time
+    std::cout << "{" << seed.location.x << "," << seed.location.y << ", " << seed.location.z << "} : " << seed.time
               << std::endl;
   }
   std::cout << "[end] generate seeds" << std::endl;
@@ -198,7 +201,7 @@ int main (int argc, char** argv)
   GenerateSeeds(seeds, xrake, yrake, zrake, numSeeds, initTime);
   std::cout << "Will use " << seeds.size() << " seeds." << std::endl;
 
-  flow::VaporField velocityField(8);
+  flow::VaporField velocityField(3);
   velocityField.IsSteady = true;
   velocityField.AssignDataManager(&datamgr);
   velocityField.VelocityNames[0] = fieldx.c_str();
@@ -225,14 +228,14 @@ int main (int argc, char** argv)
   auto start = chrono::steady_clock::now();
 
   int advect = flow::ADVECT_HAPPENED;
-  /*for(size_t step =  advection.GetMaxNumOfPart() - 1;
+  for(size_t step =  advection.GetMaxNumOfPart() - 1;
       step < steps && advect == flow::ADVECT_HAPPENED; steps++)
   {
     advect = advection.AdvectOneStep(&velocityField, length, external::Advection::ADVECTION_METHOD::RK4);
     //std::cout << "Advection happened? " << ((advect != 0) ? "yes" : "no") << std::endl;
-  }*/
+  }
 
-  advect = advection.AdvectSteps(&velocityField, length, steps, external::Advection::ADVECTION_METHOD::RK4);
+  //advect = advection.AdvectSteps(&velocityField, length, steps, external::Advection::ADVECTION_METHOD::RK4);
 
   auto end = chrono::steady_clock::now();
   const double nanotosec = 1e-9;
