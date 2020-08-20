@@ -151,6 +151,7 @@ Advection::AdvectOneStep( Field* velocity, float deltaT, ADVECTION_METHOD method
     {
         // Check if the particle is inside of the volume.
         // Also wrap it along periodic dimensions if enabled.
+        std::cout << "[validity] " << velocity->InsideVolumeVelocity(s.back().time, s.back().location) << std::endl;
         if( !velocity->InsideVolumeVelocity( s.back().time, s.back().location ) )
         {
             auto& p0 = s.back();
@@ -172,6 +173,7 @@ Advection::AdvectOneStep( Field* velocity, float deltaT, ADVECTION_METHOD method
             // If the new location comes inside volume, then we do these things:
             // 1) Update the location of p0 to represent the wrapped result.
             // 2) Insert a separator particle before p0.
+            std::cout << "[validity] " << velocity->InsideVolumeVelocity(p0.time, loc) << std::endl;
             if( velocity->InsideVolumeVelocity( p0.time, loc ) )
             {
                 p0.location = loc;
