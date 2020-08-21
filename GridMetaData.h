@@ -66,6 +66,8 @@ public:
   {
     logical[0] = index % dims[0];
     logical[1] = (index / dims[0]) % dims[1];
+    if(_is2DGrid)
+      return;
     logical[2] = index / (dims[0] * dims[1]);
   }
 
@@ -80,6 +82,8 @@ public:
     // For differentials w.r.t delta in y
     neighbors[2] = (logical[1] == 0) ? index : index - RowSize;
     neighbors[3] = (logical[1] == dims[1] - 1) ? index : index + RowSize;
+    if(_is2DGrid)
+      return;
     // For differentials w.r.t delta in z
     neighbors[4] = (logical[2] == 0) ? index : index - PlaneSize;
     neighbors[5] = (logical[2] == dims[2] - 1) ? index : index + PlaneSize;
@@ -93,6 +97,7 @@ private:
   std::vector<double> xCoords;
   std::vector<double> yCoords;
   std::vector<double> zCoords;
+  bool _2DGrid;
 };
 
 }

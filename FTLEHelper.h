@@ -52,137 +52,157 @@ std::ostream& operator<<(std::ostream &strm, const Vec3& vec) {
 }
 
 inline Vec3 GetVec3(const std::vector<flow::Particle>& data,
-                              long long int index)
+                    const long long int index)
 {
   return Vec3{data.at(index).location.x, data.at(index).location.y, data.at(index).location.z};
 }
 
-void CalculateCauchyGreenTensor(Vec3* jacobian)
+class FTLEHelper
 {
-  Vec3 j1 = jacobian[0];
-  Vec3 j2 = jacobian[1];
-
-  // Left Cauchy Green Tensor is J*J^T
-  // j1[0] j1[1] | j1[0] j2[0]
-  // j2[0] j2[1] | j1[1] j2[1]
-
-  double a = j1[0] * j1[0] + j1[1] * j1[1];
-  double b = j1[0] * j2[0] + j1[1] * j2[1];
-
-  double d = j2[0] * j2[0] + j2[1] * j2[1];
-
-  jacobian[0] =  Vec3{a, b, 1};
-  jacobian[1] =  Vec3{b, d, 1};
+public:
+  virtual void CalculateCauchyGreenTensor(Vec3* jacobian);
+  virtual Vec3 CalculateJacobi(Vec3* jacobian);
 }
 
-/*void CalculateCauchyGreenTensor(Vec3* jacobian)
+template<int dimensions>
+class DimensionHelper;
+
+template<>
+class DimensionHelper<2> : public FTLEHelper
 {
-  Vec3 j1 = jacobian[0];
-  Vec3 j2 = jacobian[1];
-  Vec3 j3 = jacobian[2];
+public:
+  Dimension
 
-  // Left Cauchy Green Tensor is J*J^T
-  // j1[0]  j1[1] j1[2] |  j1[0]  j2[0]  j3[0]
-  // j2[0]  j2[1] j2[2] |  j1[1]  j2[1]  j3[1]
-  // j3[0]  j3[1] j3[2] |  j1[2]  j2[2]  j3[2]
-
-  double a = j1[0] * j1[0] + j1[1] * j1[1] + j1[2] * j1[2];
-  double b = j1[0] * j2[0] + j1[1] * j2[1] + j1[2] * j2[2];
-  double c = j1[0] * j3[0] + j1[1] * j3[1] + j1[2] * j3[2];
-
-  double d = j2[0] * j2[0] + j2[1] * j2[1] + j2[2] * j2[2];
-  double e = j2[0] * j3[0] + j2[1] * j3[1] + j2[2] * j3[2];
-
-  double f = j3[0] * j3[0] + j3[1] * j3[1] + j3[2] * j3[2];
-
-  jacobian[0] =  Vec3{a, b, c};
-  jacobian[1] =  Vec3{b, d, e};
-  jacobian[2] =  Vec3{d, e, f};
-}*/
-
-
-Vec3 CalculateJacobi(Vec3* jacobian)
-{
-  Vec3 j1 = jacobian[0];
-  Vec3 j2 = jacobian[1];
-
-  // Assume a symetric matrix
-  // a b
-  // b c
-  double a = j1[0];
-  double b = j1[1];
-  double c = j2[1];
-
-  double trace = (a + c) / 2.0f;
-  double det = a * c - b * b;
-  double sqrtr = std::sqrt(trace * trace - det);
-
-  // Arrange eigen values from largest to smallest.
-  double w0 = trace + sqrtr;
-  double w1 = trace - sqrtr;
-  return Vec3{w0, w1, 0.};
-}
-
-/*Vec3 CalculateJacobi(Vec3* jacobian)
-{
-  Vec3 j1 = jacobian[0];
-  Vec3 j2 = jacobian[1];
-  Vec3 j3 = jacobian[2];
-  // Assume a symetric matrix
-  // a b c
-  // b d e
-  // c e f
-  double a = j1[0];
-  double b = j1[1];
-  double c = j1[2];
-  double d = j2[1];
-  double e = j2[2];
-  double f = j3[2];
-
-  double x = (a + d + f) / 3.0f; // trace
-
-  a -= x;
-  d -= x;
-  f -= x;
-
-  // Det / 2;
-  double q = (a * d * f + b * e * c + c * b * e - c * d * c - e * e * a - f * b * b) / 2.0f;
-  double r = (a * a + b * b + c * c + b * b + d * d + e * e + c * c + e * e + f * f) / 6.0f;
-
-  double D = (r * r * r - q * q);
-  double phi = 0.0f;
-  const double PI = std::atan(1.0)*4;
-
-  if (D < DBL_EPSILON)
-    phi = 0.0f;
-  else
+  void CalculateCauchyGreenTensor(Vec3* jacobian)
   {
-    phi = std::atan(std::sqrt(D) / q) / 3.0f;
-    if (phi < 0)
-      phi += PI;
+    Vec3 j1 = jacobian[0];
+    Vec3 j2 = jacobian[1];
+
+    // Left Cauchy Green Tensor is J*J^T
+    // j1[0] j1[1] | j1[0] j2[0]
+    // j2[0] j2[1] | j1[1] j2[1]
+    double a = j1[0] * j1[0] + j1[1] * j1[1];
+    double b = j1[0] * j2[0] + j1[1] * j2[1];
+
+    double d = j2[0] * j2[0] + j2[1] * j2[1];
+
+    jacobian[0] =  Vec3{a, b, 1};
+    jacobian[1] =  Vec3{b, d, 1};
   }
 
-  const double sqrt3 = std::sqrt(3.0f);
-  const double sqrtr = std::sqrt(r);
+  Vec3 CalculateJacobi(Vec3* jacobian)
+  {
+    Vec3 j1 = jacobian[0];
+    Vec3 j2 = jacobian[1];
 
-  double sinphi = 0.0f, cosphi = 0.0f;
-  sinphi = std::sin(phi);
-  cosphi = std::cos(phi);
+    // Assume a symetric matrix
+    // a b
+    // b c
+    double a = j1[0];
+    double b = j1[1];
+    double c = j2[1];
 
-  double w0 = x + 2.0f * sqrtr * cosphi;
-  double w1 = x - sqrtr * (cosphi - sqrt3 * sinphi);
-  double w2 = x - sqrtr * (cosphi + sqrt3 * sinphi);
+    double trace = (a + c) / 2.0f;
+    double det = a * c - b * b;
+    double sqrtr = std::sqrt(trace * trace - det);
 
-  // Arrange eigen values from largest to smallest.
-  if (w1 > w0)
-    std::swap(w0, w1);
-  if (w2 > w0)
-    std::swap(w0, w2);
-  if (w2 > w1)
-    std::swap(w1, w2);
+    // Arrange eigen values from largest to smallest.
+    double w0 = trace + sqrtr;
+    double w1 = trace - sqrtr;
+    return Vec3{w0, w1, 0.};
+  }
+};
 
-  return Vec3{w0, w1, w2};
-}*/
+template<>
+class DimensionHelper<3> : public FTLEHelper
+{
+public:
+  void CalculateCauchyGreenTensor(Vec3* jacobian)
+  {
+    Vec3 j1 = jacobian[0];
+    Vec3 j2 = jacobian[1];
+    Vec3 j3 = jacobian[2];
+
+    // Left Cauchy Green Tensor is J*J^T
+    // j1[0]  j1[1] j1[2] |  j1[0]  j2[0]  j3[0]
+    // j2[0]  j2[1] j2[2] |  j1[1]  j2[1]  j3[1]
+    // j3[0]  j3[1] j3[2] |  j1[2]  j2[2]  j3[2]
+    double a = j1[0] * j1[0] + j1[1] * j1[1] + j1[2] * j1[2];
+    double b = j1[0] * j2[0] + j1[1] * j2[1] + j1[2] * j2[2];
+    double c = j1[0] * j3[0] + j1[1] * j3[1] + j1[2] * j3[2];
+
+    double d = j2[0] * j2[0] + j2[1] * j2[1] + j2[2] * j2[2];
+    double e = j2[0] * j3[0] + j2[1] * j3[1] + j2[2] * j3[2];
+
+    double f = j3[0] * j3[0] + j3[1] * j3[1] + j3[2] * j3[2];
+
+    jacobian[0] =  Vec3{a, b, c};
+    jacobian[1] =  Vec3{b, d, e};
+    jacobian[2] =  Vec3{d, e, f};
+  }
+
+  Vec3 CalculateJacobi(Vec3* jacobian)
+  {
+    Vec3 j1 = jacobian[0];
+    Vec3 j2 = jacobian[1];
+    Vec3 j3 = jacobian[2];
+    // Assume a symetric matrix
+    // a b c
+    // b d e
+    // c e f
+    double a = j1[0];
+    double b = j1[1];
+    double c = j1[2];
+    double d = j2[1];
+    double e = j2[2];
+    double f = j3[2];
+
+    double x = (a + d + f) / 3.0f; // trace
+
+    a -= x;
+    d -= x;
+    f -= x;
+
+    // Det / 2;
+    double q = (a * d * f + b * e * c + c * b * e - c * d * c - e * e * a - f * b * b) / 2.0f;
+    double r = (a * a + b * b + c * c + b * b + d * d + e * e + c * c + e * e + f * f) / 6.0f;
+
+    double D = (r * r * r - q * q);
+    double phi = 0.0f;
+    const double PI = std::atan(1.0)*4;
+
+    if (D < DBL_EPSILON)
+      phi = 0.0f;
+    else
+    {
+      phi = std::atan(std::sqrt(D) / q) / 3.0f;
+      if (phi < 0)
+        phi += PI;
+    }
+
+    const double sqrt3 = std::sqrt(3.0f);
+    const double sqrtr = std::sqrt(r);
+
+    double sinphi = 0.0f, cosphi = 0.0f;
+    sinphi = std::sin(phi);
+    cosphi = std::cos(phi);
+
+    double w0 = x + 2.0f * sqrtr * cosphi;
+    double w1 = x - sqrtr * (cosphi - sqrt3 * sinphi);
+    double w2 = x - sqrtr * (cosphi + sqrt3 * sinphi);
+
+    // Arrange eigen values from largest to smallest.
+    if (w1 > w0)
+      std::swap(w0, w1);
+    if (w2 > w0)
+      std::swap(w0, w2);
+    if (w2 > w1)
+      std::swap(w1, w2);
+
+    return Vec3{w0, w1, w2};
+  }
+
+};
 
 void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
                    const std::vector<flow::Particle>& endPositions,
@@ -255,7 +275,7 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     }
 
     // 2. Calculate Caunchy Green Tensor
-    CalculateCauchyGreenTensor(jacobian);
+    CalculateCauchyGreenTensor<2>(jacobian);
     // Make sure jacobian has changed indeed
 
     if(index < 10)
