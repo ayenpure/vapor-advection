@@ -129,7 +129,7 @@ int main (int argc, char** argv)
   const long steps = vm["steps"].as<long>();
   float length = vm["length"].as<float>();
 
-  //std::cout << "Available # of threads : " << omp_get_max_threads() << std::endl;
+  std::cout << "Available # of threads : " << omp_get_max_threads() << std::endl;
   std::cout << "Advection w/ : "
             << "\nData : " << datapath
             << "\nField : " << fieldx << "| " << fieldy << " | " << fieldz
@@ -220,9 +220,9 @@ int main (int argc, char** argv)
   auto elapsed = chrono::duration_cast<chrono::nanoseconds>(end - start).count() * nanotosec;
   cout << "Elapsed time : " << elapsed << " sec." << endl;
 
-  PrintStreams(advection);
-  /*res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);*/
-  //for(auto& seed : seeds)
-  //  std::cout << seed.location.x << " : " << seed.time << std::endl;
+  // PrintStreams(advection);
+  // *res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);*/
+  // for(auto& seed : seeds)
+  //   std::cout << seed.location.x << " : " << seed.time << std::endl;
   return 0;
 }
