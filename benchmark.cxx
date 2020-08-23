@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <random>
-#include <omp.h>
+//#include <omp.h>
 
 #include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
@@ -36,29 +36,19 @@ void GenerateSeeds(std::vector<flow::Particle>& seeds,
                    const long numOfSeeds,
                    const double initTime)
 {
-  std::cout << "[begin] generate seeds" << std::endl;
   const unsigned int randSeed = 32;
   std::mt19937 gen(randSeed); //Standard mersenne_twister_engine
   std::uniform_real_distribution<float> distX( xrake.at(0), xrake.at(1));
   std::uniform_real_distribution<float> distY( yrake.at(0), yrake.at(1));
   std::uniform_real_distribution<float> distZ( zrake.at(0), zrake.at(1));
-  seeds.resize(1);
-  for( long i = 0; i < 1; i++ )
+  seeds.resize(numOfSeeds);
+  for( long i = 0; i < numOfSeeds; i++ )
   {
-            seeds[i].location.x = 1.448671;
-            seeds[i].location.y = -8.197534;
-            seeds[i].location.z = 0.344849;
-    //seeds[i].location.x = distX(gen);
-    //seeds[i].location.y = distY(gen);
-    //seeds[i].location.z = distZ(gen);
+    seeds[i].location.x = distX(gen);
+    seeds[i].location.y = distY(gen);
+    seeds[i].location.z = distZ(gen);
     seeds[i].time       = initTime;
   }
-  for(auto& seed : seeds)
-  {
-    std::cout << "{" << seed.location.x << "," << seed.location.y << ", " << seed.location.z << "} : " << seed.time
-              << std::endl;
-  }
-  std::cout << "[end] generate seeds" << std::endl;
 }
 
 int PrintStreams(external::Advection& advector)
@@ -135,11 +125,11 @@ int main (int argc, char** argv)
   std::string fieldy = vm["fieldy"].as<std::string>();
   std::string fieldz = vm["fieldz"].as<std::string>();
 
-  long numSeeds = vm["seeds"].as<long>();
-  long steps = vm["steps"].as<long>();
+  const long numSeeds = vm["seeds"].as<long>();
+  const long steps = vm["steps"].as<long>();
   float length = vm["length"].as<float>();
 
-  std::cout << "Available # of threads : " << omp_get_max_threads() << std::endl;
+  //std::cout << "Available # of threads : " << omp_get_max_threads() << std::endl;
   std::cout << "Advection w/ : "
             << "\nData : " << datapath
             << "\nField : " << fieldx << "| " << fieldy << " | " << fieldz
@@ -174,29 +164,15 @@ int main (int argc, char** argv)
   std::vector<flow::Particle> seeds;
   std::vector<double> xrake;
   multitoken_double(vm["xrake"].as<std::string>(), xrake);
-  std::cout << "Rake X : [ " << xrake.at(0) << " --- " << xrake.at(1) << "]" << std::endl;
   std::vector<double> yrake;
   multitoken_double(vm["yrake"].as<std::string>(), yrake);
-  std::cout << "Rake Y : [ " << yrake.at(0) << " --- " << yrake.at(1) << "]" << std::endl;
   std::vector<double> zrake;
   multitoken_double(vm["zrake"].as<std::string>(), zrake);
-  std::cout << "Rake Z : [ " << zrake.at(0) << " --- " << zrake.at(1) << "]" << std::endl;
-  /*vector<double> mind, maxd;
   // Get the extents of the dataset
   // I don't know why this requires a variable name!
-  res = datamgr.GetVariableExtents(0, "uinterp", -1, -1, mind, maxd);
-  std::cout << "****************" << datamgr.GetNumDimensions("uinterp") << std::endl;
-  std::vector<size_t> dims;
-  datamgr.GetDimLens("uinterp", dims);
-  for(auto& dim : dims)
-    std::cout << "**" << dim << std::endl;
-
-  if(res < 0)
-  {
-    std::cerr << "Failed to retrieve the extents of data" << std::endl;
-    exit(EXIT_FAILURE);
-  }*/
- // Populate seeds array
+  vector<double> mind, maxd;
+  res = datamgr.GetVariableExtents(0, fieldx, 0, 0, mind, maxd);
+  // Populate seeds array
   // Random for now, let users configure later
   GenerateSeeds(seeds, xrake, yrake, zrake, numSeeds, initTime);
   std::cout << "Will use " << seeds.size() << " seeds." << std::endl;
@@ -215,7 +191,10 @@ int main (int argc, char** argv)
   params.SetFlowDirection(static_cast<int>(VAPoR::FlowDir::FORWARD));
   params.SetSeedGenMode(static_cast<int>(VAPoR::FlowSeedMode::RANDOM));
   params.SetRandomNumOfSeeds(1000);
+  params.SetRefinementLevel(0);
+  params.SetCompressionLevel(0);
   velocityField.UpdateParams(&params);
+  params.GetBox()->SetExtents( mind, maxd );
 
   res = velocityField.CalcDeltaTFromCurrentTimeStep(length);
 
@@ -229,10 +208,9 @@ int main (int argc, char** argv)
 
   int advect = flow::ADVECT_HAPPENED;
   for(size_t step =  advection.GetMaxNumOfPart() - 1;
-      step < steps && advect == flow::ADVECT_HAPPENED; steps++)
+      step < steps && advect == flow::ADVECT_HAPPENED; step++)
   {
     advect = advection.AdvectOneStep(&velocityField, length, external::Advection::ADVECTION_METHOD::RK4);
-    //std::cout << "Advection happened? " << ((advect != 0) ? "yes" : "no") << std::endl;
   }
 
   //advect = advection.AdvectSteps(&velocityField, length, steps, external::Advection::ADVECTION_METHOD::RK4);
