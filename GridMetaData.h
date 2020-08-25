@@ -89,6 +89,11 @@ public:
     neighbors[5] = (logical[2] == dims[2] - 1) ? index : index + PlaneSize;
   }
 
+  bool IsTwoDimentional()
+  {
+    return _2DGrid;
+  }
+
 private:
   std::vector<size_t> dims;
   long long int PlaneSize;

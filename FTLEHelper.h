@@ -57,7 +57,7 @@ inline Vec3 GetVec3(const std::vector<flow::Particle>& data,
   return Vec3{data.at(index).location.x, data.at(index).location.y, data.at(index).location.z};
 }
 
-class FTLEHelper
+class FTLECalculator
 {
 public:
   virtual void CalculateCauchyGreenTensor(Vec3* jacobian);
@@ -68,7 +68,7 @@ template<int dimensions>
 class DimensionHelper;
 
 template<>
-class DimensionHelper<2> : public FTLEHelper
+class DimensionHelper<2> : public FTLECalculator
 {
 public:
   Dimension
@@ -114,7 +114,7 @@ public:
 };
 
 template<>
-class DimensionHelper<3> : public FTLEHelper
+class DimensionHelper<3> : public FTLECalculator
 {
 public:
   void CalculateCauchyGreenTensor(Vec3* jacobian)
@@ -204,6 +204,14 @@ public:
 
 };
 
+FTLECalculator* GetFTLECalculator(GridMetaData& metadata)
+{
+  if(metaData->IsTwoDimentional())
+    return new DimensionHelper<2>();
+  else
+    return new DimensionHelper<3>();
+}
+
 void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
                    const std::vector<flow::Particle>& endPositions,
                    const detail::GridMetaData& metaData,
@@ -216,6 +224,9 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
   const long long int numPoints = metaData.GetNumberOfPoints();
   long long int index;
   const double dur_by2_reci = 1.0f / (2.0*duration);
+
+  FTLECalculator* expCalculator = GetFTLECalculator(metaData);
+
   #pragma omp parallel
   #pragma omp for
   for(index =0; index < numPoints; index++)
@@ -229,9 +240,6 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     Vec3 yin1, yin2;
     yin1 = GetVec3(startPositions, neighbors[2]);
     yin2 = GetVec3(startPositions, neighbors[3]);
-    Vec3 zin1, zin2;
-    zin1 = GetVec3(startPositions, neighbors[4]);
-    zin2 = GetVec3(startPositions, neighbors[5]);
 
     Vec3 xout1, xout2;
     xout1 = GetVec3(endPositions, neighbors[0]);
@@ -239,6 +247,11 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     Vec3 yout1, yout2;
     yout1 = GetVec3(endPositions, neighbors[2]);
     yout2 = GetVec3(endPositions, neighbors[3]);
+
+    Vec3 zin1, zin2;
+    zin1 = GetVec3(startPositions, neighbors[4]);
+    zin2 = GetVec3(startPositions, neighbors[5]);
+
     Vec3 zout1, zout2;
     zout1 = GetVec3(endPositions, neighbors[4]);
     zout2 = GetVec3(endPositions, neighbors[5]);
