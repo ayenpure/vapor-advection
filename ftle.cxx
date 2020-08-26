@@ -126,7 +126,6 @@ int main (int argc, char** argv)
                     ("fieldx", options::value<std::string>()->required(), "Name of vector field")
                     ("fieldy", options::value<std::string>()->required(), "Name of vector field")
                     ("fieldz", options::value<std::string>()->required(), "Name of vector field")
-                    ("steps", options::value<long>()->required(), "Number of steps")
                     ("length", options::value<float>()->required(), "Length of a single step")
                     ("duration", options::value<double>()->required(), "Duration for advection")
                     ("dimx", options::value<long>()->required(), "Number of seeds in X dimension")
@@ -141,7 +140,6 @@ int main (int argc, char** argv)
       && vm.count("fieldx")
       && vm.count("fieldy")
       && vm.count("fieldz")
-      && vm.count("steps")
       && vm.count("length")
       && vm.count("duration")
       && vm.count("dimx")
@@ -156,7 +154,6 @@ int main (int argc, char** argv)
   const std::string fieldx = vm["fieldx"].as<std::string>();
   const std::string fieldy = vm["fieldy"].as<std::string>();
   const std::string fieldz = vm["fieldz"].as<std::string>();
-  const long steps = vm["steps"].as<long>();
   float length = vm["length"].as<float>();
   const double duration = vm["duration"].as<double>();
   std::vector<long> dimensions;
@@ -170,7 +167,6 @@ int main (int argc, char** argv)
   std::cout << "Advection w/ : "
             << "\nData : " << datapath
             << "\nField : " << fieldx << "| " << fieldy << " | " << fieldz
-            << "\nSteps : " << steps
             << "\nLength : " << length
             << "\nField : " << dimx << "| " << dimy << " | " << dimz << std::endl;
 
@@ -230,7 +226,6 @@ int main (int argc, char** argv)
   ParamsBase::StateSave stateSave;// = nullptr;
   VAPoR::FlowParams params(&datamgr, &stateSave);
   params.SetIsSteady(true);
-  params.SetSteadyNumOfSteps(steps);
   params.SetFlowDirection(static_cast<int>(VAPoR::FlowDir::FORWARD));
   params.SetSeedGenMode(static_cast<int>(VAPoR::FlowSeedMode::RANDOM));
   params.SetRandomNumOfSeeds(1000);
@@ -260,14 +255,7 @@ int main (int argc, char** argv)
 
   /*We'll get streams as an output over here*/
   /*Future optimization : if only FTLE is required, do not calculate the streams*/
-  std::vector<double> bounds;
-  bounds.push_back(overlapmin.at(0));
-  bounds.push_back(overlapmax.at(0));
-  bounds.push_back(overlapmin.at(1));
-  bounds.push_back(overlapmax.at(1));
-  bounds.push_back(overlapmin.at(2));
-  bounds.push_back(overlapmax.at(2));
-  detail::GridMetaData metaData(dimensions, bounds);
+  detail::GridMetaData metaData(dimensions);
   std::vector<double> FTLEfield;
   CalculateFTLE(seeds, endLocations, metaData, duration, FTLEfield);
 
@@ -275,15 +263,12 @@ int main (int argc, char** argv)
   const double nanotosec = 1e-9;
   auto elapsed = chrono::duration_cast<chrono::nanoseconds>(end - start).count() * nanotosec;
   cout << "Elapsed time : " << elapsed << " sec." << endl;
-
+  
   ofstream fout;
-  fout.open("FTLEoutput.dat", ios::binary);
+  fout.open("FTLEfield.dat", ios::binary);
   fout.write(reinterpret_cast<const char*>(&FTLEfield[0]), FTLEfield.size()*sizeof(double));
   fout.close();
 
-  PrintStreams(advection);
-  // *res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);*/
-  // for(auto& seed : seeds)
-  //   std::cout << seed.location.x << " : " << seed.time << std::endl;
+  //PrintStreams(advection);
   return 0;
 }

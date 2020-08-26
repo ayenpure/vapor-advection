@@ -9,32 +9,14 @@ namespace detail
 class GridMetaData
 {
 public:
-  GridMetaData(const std::vector<long>& _dims,
-               const std::vector<double>& _bounds)
+  GridMetaData(const std::vector<long>& _dims)
   : dims(_dims)
-  , bounds(_bounds)
   {
     this->PlaneSize = dims.at(0)*dims.at(1);
     this->RowSize = dims.at(0);
 
     if(this->dims[2] == 1)
       _2DGrid = true;
-
-    // Populate x, y, z coords
-    double xSpace = (bounds.at(1) - bounds.at(0)) / (dims[0] - 1);
-    double ySpace = (bounds.at(3) - bounds.at(2)) / (dims[1] - 1);
-    double zSpace = (bounds.at(5) - bounds.at(4)) / (dims[2] - 1);
-    double init = bounds.at(0);
-    xCoords.resize(dims.at(0));
-    yCoords.resize(dims.at(1));
-    zCoords.resize(dims.at(2));
-    size_t index;
-    for(index = 0; index < dims[0]; index++)
-      xCoords[index] = bounds.at(0) + index * xSpace;
-    for(index = 0; index < dims[1]; index++)
-      yCoords[index] = bounds.at(2) + index * ySpace;
-    for(index = 0; index < dims[2]; index++)
-      zCoords[index] = bounds.at(4) + index * zSpace;
   }
 
   long long int GetNumberOfPoints() const
@@ -104,10 +86,6 @@ private:
   std::vector<long> dims;
   long long int PlaneSize;
   long long int RowSize;
-  std::vector<double> bounds;
-  std::vector<double> xCoords;
-  std::vector<double> yCoords;
-  std::vector<double> zCoords;
   bool _2DGrid = false;
 };
 
