@@ -36,6 +36,7 @@
 #include <vtkm/worklet/WorkletMapTopology.h>
 
 #include "Advection.h"
+#include "GridMetaData.h"
 #include "FTLEHelper.h"
 
 using namespace VAPoR;
@@ -220,7 +221,7 @@ int main (int argc, char** argv)
   vtkm::cont::CoordinateSystem coords = data.GetCoordinateSystem();
   vtkm::cont::DynamicCellSet cellset  = data.GetCellSet();
 
-  std::vector<size_t> dims;
+  std::vector<long> dims;
   using Structured2DType = vtkm::cont::CellSetStructured<2>;
   using Structured3DType = vtkm::cont::CellSetStructured<3>;
   if (cellset.IsType<Structured2DType>())
@@ -229,7 +230,7 @@ int main (int argc, char** argv)
         cellset.Cast<Structured2DType>().GetSchedulingRange(vtkm::TopologyElementTagPoint());
     dims.push_back(_dims[0]);
     dims.push_back(_dims[1]);
-    dims.push_back(size_t(1));
+    dims.push_back(long(1));
   }
   else
   {
@@ -264,6 +265,11 @@ int main (int argc, char** argv)
   vtkm::cont::ArrayHandle<double> visitFTLE;
   data.GetField("ftle").GetData().CopyTo(visitFTLE);
   invoker(detail::CompareWorklet{}, vaporFTLE, vtkmFTLE, visitFTLE);
+
+  ofstream fout;
+  fout.open("vaporFTLE", ios::binary);
+  fout.write(reinterpret_cast<const char*>(&_vaporFTLE[0]), _vaporFTLE.size()*sizeof(double));
+  fout.close();
 
   return 0;
 }

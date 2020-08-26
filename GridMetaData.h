@@ -1,3 +1,6 @@
+#ifndef GRID_META_DATA
+#define GRID_META_DATA
+
 #include <vector>
 
 namespace detail
@@ -6,13 +9,16 @@ namespace detail
 class GridMetaData
 {
 public:
-  GridMetaData(const std::vector<size_t>& _dims,
+  GridMetaData(const std::vector<long>& _dims,
                const std::vector<double>& _bounds)
   : dims(_dims)
   , bounds(_bounds)
   {
     this->PlaneSize = dims.at(0)*dims.at(1);
     this->RowSize = dims.at(0);
+
+    if(this->dims[2] == 1)
+      _2DGrid = true;
 
     // Populate x, y, z coords
     double xSpace = (bounds.at(1) - bounds.at(0)) / (dims[0] - 1);
@@ -66,7 +72,7 @@ public:
   {
     logical[0] = index % dims[0];
     logical[1] = (index / dims[0]) % dims[1];
-    if(_is2DGrid)
+    if(this->_2DGrid)
       return;
     logical[2] = index / (dims[0] * dims[1]);
   }
@@ -82,20 +88,20 @@ public:
     // For differentials w.r.t delta in y
     neighbors[2] = (logical[1] == 0) ? index : index - RowSize;
     neighbors[3] = (logical[1] == dims[1] - 1) ? index : index + RowSize;
-    if(_is2DGrid)
+    if(this->_2DGrid)
       return;
     // For differentials w.r.t delta in z
     neighbors[4] = (logical[2] == 0) ? index : index - PlaneSize;
     neighbors[5] = (logical[2] == dims[2] - 1) ? index : index + PlaneSize;
   }
 
-  bool IsTwoDimentional()
+  bool IsTwoDimentional() const
   {
-    return _2DGrid;
+    return this->_2DGrid;
   }
 
 private:
-  std::vector<size_t> dims;
+  std::vector<long> dims;
   long long int PlaneSize;
   long long int RowSize;
   std::vector<double> bounds;
@@ -106,3 +112,5 @@ private:
 };
 
 }
+
+#endif

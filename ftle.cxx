@@ -1,16 +1,18 @@
 #include <chrono>
 #include <iostream>
+#include <limits>
 #include <vector>
 #include <random>
 
 #include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
 
+#include <vapor/Advection.h>
 #include <vapor/DataMgr.h>
 #include <vapor/FileUtils.h>
 #include <vapor/VaporField.h>
 
-#include "Advection.h"
+#include "GridMetaData.h"
 #include "FTLEHelper.h"
 
 using namespace VAPoR;
@@ -29,30 +31,85 @@ int GetFilesFromDirectory(const std::string& datapath,
   return 0;
 }
 
-/*void GenerateSeeds(std::vector<flow::Particle>& seeds,
-                   const std::vector<double>& rake,
-                   const long numOfSeeds)
+void GenerateSeeds(std::vector<flow::Particle>& seeds,
+                   const std::vector<double>& overlapmin,
+                   const std::vector<double>& overlapmax,
+                   const std::vector<long>& dimensions,
+                   const double initTime)
 {
-  // We need uniform seeding here throughout the grid
-  // Assume we Have that
-  std::cout << "[begin] generate seeds" << std::endl;
-  std::cout << "Rake size : " << rake.size() << std::endl;
-  const unsigned int randSeed = 32;
-  std::mt19937 gen(randSeed); //Standard mersenne_twister_engine
-  std::uniform_real_distribution<double> distX( rake.at(0), rake.at(1));
-  std::uniform_real_distribution<double> distY( rake.at(2), rake.at(3));
-  std::uniform_real_distribution<double> distZ( rake.at(4), rake.at(5));
-  const float timeVal = 0.;
-  seeds.resize(numOfSeeds);
-  for( long i = 0; i < numOfSeeds; i++ )
+    /* Create arrays that contain X, Y, and Z coordinates */
+    float start[3], step[3];
+    for( int i = 0; i < dimensions.size(); i++ )    // for each of the X, Y, Z dimensions
+    {
+        if( dimensions[i] == 1 )     // one seed in this dimension
+        {
+            start[i] = overlapmin[i] + 
+                       0.5f * (overlapmax[i] - overlapmin[i]);
+            step[i]  = 0.0f;
+        }
+        else                        // more than one seed in this dimension
+        {
+            start[i] = overlapmin[i];
+            step[i]  = (overlapmax[i] - overlapmin[i]) / float(dimensions[i] - 1);
+        }
+    }
+    if( dimensions.size() == 2 || dimensions.at(2) == 1)  // put default Z values
+    {
+        start[2] = 0.0f;
+        step[2]  = 0.0f;
+    }
+
+    /* Populate the list of seeds */
+    float timeVal = initTime;  // Default time value
+    glm::vec3 loc;
+    seeds.clear();
+    long seedsZ;
+    if( dimensions.size() == 2 || dimensions.at(2) == 1) seedsZ = 1;
+    else            seedsZ = dimensions[2];
+    // Reserve enough space at the beginning for performance considerations
+    seeds.reserve( seedsZ * dimensions[1] * dimensions[0] );
+    for( long k = 0; k < seedsZ; k++ )
+        for( long j = 0; j < dimensions[1]; j++ )
+            for( long i = 0; i < dimensions[0]; i++ )
+            {
+                loc.x = start[0] + float(i) * step[0];
+                loc.y = start[1] + float(j) * step[1];
+                loc.z = start[2] + float(k) * step[2];
+                seeds.emplace_back( loc, timeVal );
+            }
+
+}
+
+int PrintStreams(flow::Advection& advector)
+{
+  size_t numStreams = advector.GetNumberOfStreams();
+  for(size_t index = 0; index < numStreams; index++)
   {
-    seeds[i].location.x = distX(gen);
-    seeds[i].location.y = distY(gen);
-    seeds[i].location.z = distZ(gen);
-    seeds[i].time       = timeVal;
+    auto& stream = advector.GetStreamAt(index);
+    {
+      auto& start = stream.front();
+      auto& end = stream.back();
+      std::cout << "[" << index << "] Size : " << stream.size() << " "
+                << "{(" << start.location.x << ", " << start.location.y << ", " << start.location.z << ") : "
+                << "(" << end.location.x << ", " << end.location.y << ", " << end.location.z << ")}" << std::endl;
+    }
   }
-  std::cout << "[end] generate seeds" << std::endl;
-}*/
+  return 0;
+}
+
+void AdjustOverlap(std::vector<double>& overlapmin,
+                   std::vector<double>& overlapmax,
+                   const std::vector<double>& mind,
+                   const std::vector<double>& maxd)
+{
+  overlapmin[0] = std::max(overlapmin[0], mind[0]);
+  overlapmin[1] = std::max(overlapmin[1], mind[1]);
+  overlapmin[2] = std::max(overlapmin[2], mind[2]);
+
+  overlapmax[0] = std::min(overlapmax[0], maxd[0]);
+  overlapmax[1] = std::min(overlapmax[1], maxd[1]);
+  overlapmax[2] = std::min(overlapmax[2], maxd[2]);
+}
 
 int main (int argc, char** argv)
 {
@@ -65,41 +122,64 @@ int main (int argc, char** argv)
   // 5. Seeding parameters
   namespace options = boost::program_options;
   options::options_description desc("Options");
-  desc.add_options()("data", options::value<std::string>()->required(), "Path to dataset")
-                    ("field", options::value<std::string>()->required(), "Name of vector field")
-                    ("seeds", options::value<long>()->required(), "Number of seed particles")
-                    ("steps", options::value<long>()->required(), "Number of Steps")
-                    ("length", options::value<float>()->required(), "Length of a single step");
+  desc.add_options()("datapath", options::value<std::string>()->required(), "Path to dataset")
+                    ("fieldx", options::value<std::string>()->required(), "Name of vector field")
+                    ("fieldy", options::value<std::string>()->required(), "Name of vector field")
+                    ("fieldz", options::value<std::string>()->required(), "Name of vector field")
+                    ("steps", options::value<long>()->required(), "Number of steps")
+                    ("length", options::value<float>()->required(), "Length of a single step")
+                    ("duration", options::value<double>()->required(), "Duration for advection")
+                    ("dimx", options::value<std::string>()->required(), "Number of seeds in X dimension")
+                    ("dimy", options::value<std::string>()->required(), "Number of seeds in Y dimension")
+                    ("dimz", options::value<std::string>()->required(), "Number of seeds in Z dimension");
   options::variables_map vm;
-  options::store(options::parse_command_line(argc, argv, desc), vm); // can throw
+  std::ifstream settings_file(std::string(argv[1]), std::ifstream::in);
+  options::store(options::parse_config_file(settings_file, desc), vm);
+  settings_file.close();
   options::notify(vm);
-  if (!(vm.count("data")
-      && vm.count("field")
-      && vm.count("seeds")
+  if (!(vm.count("datapath")
+      && vm.count("fieldx")
+      && vm.count("fieldy")
+      && vm.count("fieldz")
       && vm.count("steps")
-      && vm.count("length")))
+      && vm.count("length")
+      && vm.count("duration")
+      && vm.count("dimx")
+      && vm.count("dimy")
+      && vm.count("dimz")))
   {
     std::cout << "Advection Benchmark" << std::endl << desc << std::endl;
   }
 
-  std::string datapath = vm["data"].as<std::string>();
+  const std::string datapath = vm["datapath"].as<std::string>();
   // Field is not really used
-  std::string field = vm["field"].as<std::string>();
-  long numSeeds = vm["seeds"].as<long>();
-  long steps = vm["steps"].as<long>();
+  const std::string fieldx = vm["fieldx"].as<std::string>();
+  const std::string fieldy = vm["fieldy"].as<std::string>();
+  const std::string fieldz = vm["fieldz"].as<std::string>();
+  const long numSeeds = vm["seeds"].as<long>();
+  const long steps = vm["steps"].as<long>();
   float length = vm["length"].as<float>();
+  const double duration = vm["duration"].as<double>();
+  std::vector<long> dimensions;
+  const long dimx = vm["dimx"].as<long>();
+  dimensions.push_back(dimx);
+  const long dimy = vm["dimy"].as<long>();
+  dimensions.push_back(dimy);
+  const long dimz = vm["dimz"].as<long>();
+  dimensions.push_back(dimz);
 
   std::cout << "Advection w/ : "
             << "\nData : " << datapath
-            << "\nField : " << field
+            << "\nField : " << fieldx << "| " << fieldy << " | " << fieldz
             << "\nSteps : " << steps
-            << "\nLength : " << length  << std::endl;
+            << "\nLength : " << length
+            << "\nField : " << dimx << "| " << dimy << " | " << dimz << std::endl;
 
   int res;
   // TODO : read field and variable information
   // Let's assume we have read the data and field
   const std::string filetype = "cf";
-  const size_t cache = 10000;
+  const size_t cache = 2000;
   const size_t threads = 0;
 
   std::vector<std::string> files;
@@ -115,55 +195,34 @@ int main (int argc, char** argv)
     std::cerr << "Failed to intialize CF DataMGR" << std::endl;
     exit(EXIT_FAILURE);
   }
-
-  std::vector<double> timecoords;
-  datamgr.GetTimeCoordinates(timecoords);
-  for(auto& time : timecoords)
-    std::cout << time << ", ";
-  std::cout << std::endl;
+  std::vector<double> timeCoords;
+  datamgr.GetTimeCoordinates(timeCoords);
+  double initTime = timeCoords.at(0);
 
   // Create particles
   std::vector<flow::Particle> seeds;
-  std::vector<double> rake;
-  vector<double> mind, maxd;
   // Get the extents of the dataset
   // I don't know why this requires a variable name!
-  res = datamgr.GetVariableExtents(0, "u", -1, -1, mind, maxd);
-  if(res < 0)
-  {
-    std::cerr << "Failed to retrieve the extents of data" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  //Build a seeding rake 
-  rake.push_back(mind.at(0));
-  rake.push_back(maxd.at(0));
-  rake.push_back(mind.at(1));
-  rake.push_back(maxd.at(1));
-  rake.push_back(mind.at(2));
-  rake.push_back(maxd.at(2));
-
-  std::vector<size_t> dims;
-  datamgr.GetDimLens("u", dims);
-
-  detail::GridMetaData metaData(dims, rake);
-  std::cout << "dims" << std::endl;
-  for(auto& dim : dims)
-    std::cout << dim << ", ";
-  std::cout << std::endl;
-  std::cout << "rake" << std::endl;
-  for(auto& _rake : rake)
-    std::cout << _rake << ", ";
-  std::cout << std::endl;
+  vector<double> mind, maxd;
+  vector<double> overlapmin(3, std::numeric_limits<double>::min());
+  vector<double> overlapmax(3, std::numeric_limits<double>::max());
+  res = datamgr.GetVariableExtents(0, fieldx, 0, 0, mind, maxd);
+  AdjustOverlap(overlapmin, overlapmax, mind, maxd);
+  res = datamgr.GetVariableExtents(0, fieldy, 0, 0, mind, maxd);
+  AdjustOverlap(overlapmin, overlapmax, mind, maxd);
+  res = datamgr.GetVariableExtents(0, fieldz, 0, 0, mind, maxd);
+  AdjustOverlap(overlapmin, overlapmax, mind, maxd);
   // Populate seeds array
-  metaData.GetSeeds(seeds);
+  // Random for now, let users configure later
+  GenerateSeeds(seeds, overlapmin, overlapmax, dimensions, initTime);
   std::cout << "Will use " << seeds.size() << " seeds." << std::endl;
 
-  flow::VaporField velocityField(8);
+  flow::VaporField velocityField(3);
   velocityField.IsSteady = true;
   velocityField.AssignDataManager(&datamgr);
-  velocityField.VelocityNames[0] = "u";
-  velocityField.VelocityNames[1] = "v";
-  velocityField.VelocityNames[2] = "w";
+  velocityField.VelocityNames[0] = fieldx.c_str();
+  velocityField.VelocityNames[1] = fieldy.c_str();
+  velocityField.VelocityNames[2] = fieldz.c_str();
 
   ParamsBase::StateSave stateSave;// = nullptr;
   VAPoR::FlowParams params(&datamgr, &stateSave);
@@ -172,20 +231,22 @@ int main (int argc, char** argv)
   params.SetFlowDirection(static_cast<int>(VAPoR::FlowDir::FORWARD));
   params.SetSeedGenMode(static_cast<int>(VAPoR::FlowSeedMode::RANDOM));
   params.SetRandomNumOfSeeds(1000);
+  params.SetRefinementLevel(0);
+  params.SetCompressionLevel(0);
+  params.GetBox()->SetExtents(overlapmin, overlapmax);
   velocityField.UpdateParams(&params);
 
   res = velocityField.CalcDeltaTFromCurrentTimeStep(length);
 
-  // We're building this barebone so no need for field to color with
-
   // Advect particles in the field
-  external::Advection advection;
+  flow::Advection advection;
   advection.UseSeedParticles(seeds);
+
+  int advect = flow::ADVECT_HAPPENED;
+  advect = advection.AdvectTillTime(&velocityField, initTime, length, (initTime + duration), flow::Advection::ADVECTION_METHOD::RK4);
 
   auto start = chrono::steady_clock::now();
 
-  int advect = flow::ADVECT_HAPPENED;
-  //res = advection.AdvectTillTime(&velocityField, 0, length, 10, external::Advection::ADVECTION_METHOD::RK4);
   // Extract streams from the advection class
   std::vector<flow::Particle> endLocations;
   size_t streams = advection.GetNumberOfStreams();
@@ -193,20 +254,33 @@ int main (int argc, char** argv)
   {
     endLocations.push_back(advection.GetStreamAt(index).back());
   }
+
   /*We'll get streams as an output over here*/
   /*Future optimization : if only FTLE is required, do not calculate the streams*/
-  /*FTLE steps*/
-  // 1. Calculate Gradiant
-  // 2. Calculate Caunchy Green Tensor
-  // 3. Calculate exponents
-  // 4. Allow rich set of exponents calculation
+  std::vector<double> bounds;
+  bounds.push_back(overlapmin.at(0));
+  bounds.push_back(overlapmax.at(0));
+  bounds.push_back(overlapmin.at(1));
+  bounds.push_back(overlapmax.at(1));
+  bounds.push_back(overlapmin.at(2));
+  bounds.push_back(overlapmax.at(2));
+  detail::GridMetaData metaData(dimensions, bounds);
   std::vector<double> FTLEfield;
-  CalculateFTLE(seeds, endLocations, metaData, 10, FTLEfield);
+  CalculateFTLE(seeds, endLocations, metaData, duration, FTLEfield);
 
   auto end = chrono::steady_clock::now();
   const double nanotosec = 1e-9;
   auto elapsed = chrono::duration_cast<chrono::nanoseconds>(end - start).count() * nanotosec;
-  cout << "Elapsed time in nanoseconds : " << elapsed << " sec." << endl;
+  cout << "Elapsed time : " << elapsed << " sec." << endl;
 
+  ofstream fout;
+  fout.open("FTLEoutput.dat", ios::binary);
+  fout.write(reinterpret_cast<const char*>(&FTLEfield[0]), FTLEfield.size()*sizeof(double));
+  fout.close();
+
+  // PrintStreams(advection);
+  // *res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);*/
+  // for(auto& seed : seeds)
+  //   std::cout << seed.location.x << " : " << seed.time << std::endl;
   return 0;
 }

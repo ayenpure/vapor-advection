@@ -1,3 +1,4 @@
+#include <limits>
 #include <vector>
 
 #include "GridMetaData.h"
@@ -60,9 +61,11 @@ inline Vec3 GetVec3(const std::vector<flow::Particle>& data,
 class FTLECalculator
 {
 public:
-  virtual void CalculateCauchyGreenTensor(Vec3* jacobian);
-  virtual Vec3 CalculateJacobi(Vec3* jacobian);
-}
+  FTLECalculator() = default;
+
+  virtual void CalculateCauchyGreenTensor(Vec3* jacobian) = 0;
+  virtual Vec3 CalculateJacobi(Vec3* jacobian) = 0;
+};
 
 template<int dimensions>
 class DimensionHelper;
@@ -71,9 +74,9 @@ template<>
 class DimensionHelper<2> : public FTLECalculator
 {
 public:
-  Dimension
+  DimensionHelper() = default;
 
-  void CalculateCauchyGreenTensor(Vec3* jacobian)
+  void CalculateCauchyGreenTensor(Vec3* jacobian) override
   {
     Vec3 j1 = jacobian[0];
     Vec3 j2 = jacobian[1];
@@ -90,7 +93,7 @@ public:
     jacobian[1] =  Vec3{b, d, 1};
   }
 
-  Vec3 CalculateJacobi(Vec3* jacobian)
+  Vec3 CalculateJacobi(Vec3* jacobian) override
   {
     Vec3 j1 = jacobian[0];
     Vec3 j2 = jacobian[1];
@@ -109,7 +112,7 @@ public:
     // Arrange eigen values from largest to smallest.
     double w0 = trace + sqrtr;
     double w1 = trace - sqrtr;
-    return Vec3{w0, w1, 0.};
+    return Vec3{w0, w1, -(std::numeric_limits<double>::infinity())};
   }
 };
 
@@ -117,7 +120,9 @@ template<>
 class DimensionHelper<3> : public FTLECalculator
 {
 public:
-  void CalculateCauchyGreenTensor(Vec3* jacobian)
+  DimensionHelper() = default;
+
+  void CalculateCauchyGreenTensor(Vec3* jacobian) override
   {
     Vec3 j1 = jacobian[0];
     Vec3 j2 = jacobian[1];
@@ -141,7 +146,7 @@ public:
     jacobian[2] =  Vec3{d, e, f};
   }
 
-  Vec3 CalculateJacobi(Vec3* jacobian)
+  Vec3 CalculateJacobi(Vec3* jacobian) override
   {
     Vec3 j1 = jacobian[0];
     Vec3 j2 = jacobian[1];
@@ -204,9 +209,9 @@ public:
 
 };
 
-FTLECalculator* GetFTLECalculator(GridMetaData& metadata)
+FTLECalculator* GetFTLECalculator(const detail::GridMetaData& metaData)
 {
-  if(metaData->IsTwoDimentional())
+  if(metaData.IsTwoDimentional())
     return new DimensionHelper<2>();
   else
     return new DimensionHelper<3>();
@@ -248,17 +253,23 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     yout1 = GetVec3(endPositions, neighbors[2]);
     yout2 = GetVec3(endPositions, neighbors[3]);
 
+    double xDiff, yDiff;
+    xDiff = 1.0 / (xin2[0] - xin1[0]);
+    yDiff = 1.0 / (yin2[1] - yin1[1]);
+
+    double zDiff;
     Vec3 zin1, zin2;
-    zin1 = GetVec3(startPositions, neighbors[4]);
-    zin2 = GetVec3(startPositions, neighbors[5]);
-
     Vec3 zout1, zout2;
-    zout1 = GetVec3(endPositions, neighbors[4]);
-    zout2 = GetVec3(endPositions, neighbors[5]);
+    if(!metaData.IsTwoDimentional())
+    {
+      zin1 = GetVec3(startPositions, neighbors[4]);
+      zin2 = GetVec3(startPositions, neighbors[5]);
 
-    double xDiff = 1.0 / (xin2[0] - xin1[0]);
-    double yDiff = 1.0 / (yin2[1] - yin1[1]);
-    double zDiff = 1.0 / (zin2[2] - zin1[2]);
+      zout1 = GetVec3(endPositions, neighbors[4]);
+      zout2 = GetVec3(endPositions, neighbors[5]);
+
+      zDiff = 1.0 / (zin2[2] - zin1[2]);
+    }
 
     // Total X gradient w.r.t X, Y, Z
     double f1x = (xout2[0] - xout1[0]) * xDiff;
@@ -288,7 +299,7 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     }
 
     // 2. Calculate Caunchy Green Tensor
-    CalculateCauchyGreenTensor<2>(jacobian);
+    expCalculator->CalculateCauchyGreenTensor(jacobian);
     // Make sure jacobian has changed indeed
 
     if(index < 10)
@@ -299,7 +310,7 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
     }
 
     // 3. Calculate eigenvalues for the Cauchy Green Tensor
-    Vec3 eigenValues = CalculateJacobi(jacobian);
+    Vec3 eigenValues = expCalculator->CalculateJacobi(jacobian);
 
     // 4. Allow rich set of exponents calculation
     double delta = eigenValues[0];

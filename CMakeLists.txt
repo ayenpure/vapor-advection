@@ -24,24 +24,13 @@ find_package(Boost COMPONENTS program_options filesystem REQUIRED)
 find_package(VTK REQUIRED)
 find_package(VTKm REQUIRED QUIET)
 
-add_executable(benchmark benchmark.cxx Advection.h Advection.cpp)
-set_target_properties(benchmark PROPERTIES CXX_STANDARD 11)
-target_include_directories(benchmark PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
-target_link_libraries(benchmark PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})
-
-
-add_executable(ftle ftle.cxx FTLEHelper.h Advection.h Advection.cpp)
+add_executable(ftle ftle.cxx FTLEHelper.h GridMetaData.h Advection.h Advection.cpp)
 set_target_properties(ftle PROPERTIES CXX_STANDARD 11)
 target_include_directories(ftle PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
 target_link_libraries(ftle PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})
 
 include(${VTK_USE_FILE})
-add_executable(compare CompareWithVTKm.cxx Advection.h Advection.cpp)
+add_executable(compare CompareWithVTKm.cxx FTLEHelper.h GridMetaData.h Advection.h Advection.cpp)
 set_target_properties(compare PROPERTIES CXX_STANDARD 11)
 target_include_directories(compare PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
 target_link_libraries(compare PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES} ${VTK_LIBRARIES} vtkm_cont vtkm_io vtkm_worklet)
-
-#add_executable(convert ConvertToVTK.cxx)
-#set_target_properties(convert PROPERTIES CXX_STANDARD 11)
-#target_include_directories(convert PRIVATE ${VAPORDEPS_INCLUDE_DIRS} ${VAPOR_INCLUDE_DIRS} ${Boost_INCLUDE_DIR})
-#target_link_libraries(convert PRIVATE ${VAPOR_LIBRARIES} ${Boost_LIBRARIES})
