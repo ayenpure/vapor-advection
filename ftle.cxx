@@ -129,9 +129,9 @@ int main (int argc, char** argv)
                     ("steps", options::value<long>()->required(), "Number of steps")
                     ("length", options::value<float>()->required(), "Length of a single step")
                     ("duration", options::value<double>()->required(), "Duration for advection")
-                    ("dimx", options::value<std::string>()->required(), "Number of seeds in X dimension")
-                    ("dimy", options::value<std::string>()->required(), "Number of seeds in Y dimension")
-                    ("dimz", options::value<std::string>()->required(), "Number of seeds in Z dimension");
+                    ("dimx", options::value<long>()->required(), "Number of seeds in X dimension")
+                    ("dimy", options::value<long>()->required(), "Number of seeds in Y dimension")
+                    ("dimz", options::value<long>()->required(), "Number of seeds in Z dimension");
   options::variables_map vm;
   std::ifstream settings_file(std::string(argv[1]), std::ifstream::in);
   options::store(options::parse_config_file(settings_file, desc), vm);
@@ -156,7 +156,6 @@ int main (int argc, char** argv)
   const std::string fieldx = vm["fieldx"].as<std::string>();
   const std::string fieldy = vm["fieldy"].as<std::string>();
   const std::string fieldz = vm["fieldz"].as<std::string>();
-  const long numSeeds = vm["seeds"].as<long>();
   const long steps = vm["steps"].as<long>();
   float length = vm["length"].as<float>();
   const double duration = vm["duration"].as<double>();
@@ -198,6 +197,8 @@ int main (int argc, char** argv)
   std::vector<double> timeCoords;
   datamgr.GetTimeCoordinates(timeCoords);
   double initTime = timeCoords.at(0);
+  std::cout << "Total time length : "
+            << (timeCoords.at(timeCoords.size() - 1) - timeCoords.at(0)) << std::endl;
 
   // Create particles
   std::vector<flow::Particle> seeds;
@@ -212,6 +213,8 @@ int main (int argc, char** argv)
   AdjustOverlap(overlapmin, overlapmax, mind, maxd);
   res = datamgr.GetVariableExtents(0, fieldz, 0, 0, mind, maxd);
   AdjustOverlap(overlapmin, overlapmax, mind, maxd);
+  std::cout << "Brick Origin : " << overlapmin.at(0) << " " <<overlapmin.at(1) << " " << overlapmin.at(2) << std::endl;
+  std::cout << "Brick Size : " << overlapmax.at(0) << " " <<overlapmax.at(1) << " " << overlapmax.at(2) << std::endl;
   // Populate seeds array
   // Random for now, let users configure later
   GenerateSeeds(seeds, overlapmin, overlapmax, dimensions, initTime);
@@ -278,7 +281,7 @@ int main (int argc, char** argv)
   fout.write(reinterpret_cast<const char*>(&FTLEfield[0]), FTLEfield.size()*sizeof(double));
   fout.close();
 
-  // PrintStreams(advection);
+  PrintStreams(advection);
   // *res = advection.AdvectTillTime(&velocityField, 0, length, 10, flow::Advection::ADVECTION_METHOD::RK4);*/
   // for(auto& seed : seeds)
   //   std::cout << seed.location.x << " : " << seed.time << std::endl;

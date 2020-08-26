@@ -108,7 +108,7 @@ private:
   std::vector<double> xCoords;
   std::vector<double> yCoords;
   std::vector<double> zCoords;
-  bool _2DGrid;
+  bool _2DGrid = false;
 };
 
 }

@@ -232,12 +232,13 @@ void CalculateFTLE(const std::vector<flow::Particle>& startPositions,
 
   FTLECalculator* expCalculator = GetFTLECalculator(metaData);
 
-  #pragma omp parallel
-  #pragma omp for
+  //#pragma omp parallel
+  //#pragma omp for
   for(index =0; index < numPoints; index++)
   {
     long long int neighbors[6];
     metaData.GetNeighborIndices(index, neighbors);
+
     // Gradient w.r.t X, Y, and Z.
     Vec3 xin1, xin2;
     xin1 = GetVec3(startPositions, neighbors[0]);
